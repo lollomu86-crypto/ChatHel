@@ -1,0 +1,40 @@
+{
+  "summary": "Iteration 2 e2e. Backend: 26/26 pytest passed (17 regression + 9 new: daily question, challenges, translate, AI French, coupon templates/send/redeem, admin coupons, push VAPID+subscribe, WebSocket realtime). Frontend: landing/lang-switcher/login/daily-q-share/admin/QR/coupons-modal all OK. One frontend bug found: challenge submit fails with 400 when note is empty.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "PublicChat challenge modal", "issue": "Clicking [data-testid=send-challenge-btn] returns HTTP 400 from POST /api/messages because the request body sets content=chNote.trim() which is empty when the optional note input is not filled. Backend rejects with 'Messaggio vuoto'. UI silently fails (no error toast, no card rendered). Either default content to a non-empty string (e.g. challenge title+when) or relax backend validation for kind='challenge'.", "selector": "[data-testid=send-challenge-btn]", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AdminDashboard CouponsAdminTab (line ~287)", "issues": ["React hydration warning: <span> cannot be a child of <option> — the emoji is wrapped in a <span> inside the gift recipient/template <select><option>. Use plain text inside <option> elements."]},
+      {"screen": "Spec vs code testid mismatch", "issues": ["Review request references [data-testid=coupon-template-*] but actual testids in CouponsPage are [data-testid=coupon-tpl-*]. 8 templates render correctly under the actual testid."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_iteration2.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/app/test_reports/pytest/iteration2_results.xml"
+  ],
+  "action_items": [
+    "Fix challenge submit empty-content bug: either set content to `${type} · ${when}` or backend should accept empty content when kind=='challenge'.",
+    "Fix React hydration warning in AdminDashboard.jsx (~line 287): render emoji as plain string inside <option>, no wrapping <span>.",
+    "(Optional) Align documented testids in spec — public coupon template cards use `coupon-tpl-{id}` (not `coupon-template-{id}`)."
+  ],
+  "critical_code_review_comments": [
+    "server.py @app.on_event('startup'/'shutdown') still deprecated; migrate to FastAPI lifespan.",
+    "WebSocket payload uses key 'message' (not 'data'); frontend useChatSocket already reads `message` — keep consistent in any future client.",
+    "send_message endpoint validates content non-empty for all kinds including 'challenge' — this is the root cause of the UI bug above.",
+    "AI fallback returns 200 with error string; ok for UX but log the original exception class metric for ops.",
+    "ConnectionManager.broadcast_message swallows per-socket send errors silently; consider counting failures for observability."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration2.py"],
+  "success_rate": {"backend": "100% (26/26)", "frontend": "92% (challenge send fails, rest pass)"},
+  "test_credentials": "WELCOME2026 / admin123 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Backend auto-seeds hotel + 4 areas + 3 events + 8 coupon templates + VAPID keys + daily question on startup. Tests create TEST_-prefixed transient guests/coupons/challenges/templates (custom template cleaned up).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest split into /app/backend/tests/backend_test.py (iter1 regression) and /app/backend/tests/test_iteration2.py (daily-q, challenges, translate, AI fr, coupons, admin coupons, push, websocket). Run with REACT_APP_BACKEND_URL exported. WebSocket payload uses key 'message' (e.g. {type:'message', message:{...}}). Coupon template testids in guest page are `coupon-tpl-{id}` (8 seeded). Admin coupon catalog renders without those exact testids but count badge confirms 8. Hydration warning from <span> child of <option> in AdminDashboard.jsx line ~287. Challenge submit bug: empty content posted by frontend → 400.",
+  "rca of the issue": "Challenge bug: /app/frontend/src/pages/guest/PublicChat.jsx sendChallenge() sets `content: chNote.trim()`. Note is optional in UI but content is required (>0 chars) by backend send_message at server.py line 654 (`if not content: raise HTTPException(400, 'Messaggio vuoto')`). Reproduction: login, /app/public, click open-challenge-btn, pick any type, fill when='tra 10 min', leave note empty, click send-challenge-btn → POST /api/messages returns 400 and no challenge card appears. Mitigation: in PublicChat.jsx sendChallenge, set content default e.g. `chNote.trim() || \"${t.label} · ${chWhen.trim()}\"`, OR in server.py allow empty content when req.kind=='challenge'."
+}
