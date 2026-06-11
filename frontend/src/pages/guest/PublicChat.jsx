@@ -161,18 +161,19 @@ export default function PublicChat({ me }) {
   };
 
   const sendChallenge = async () => {
-    const t = CHALLENGE_TYPES.find((x) => x.key === chType);
+    const t2 = CHALLENGE_TYPES.find((x) => x.key === chType);
+    const fallbackContent = `${t2?.label || "Sfida"}${chWhen.trim() ? " · " + chWhen.trim() : ""}`;
     try {
       await api.post("/messages", {
         channel: "public",
-        content: chNote.trim(),
+        content: chNote.trim() || fallbackContent,
         kind: "challenge",
         meta: { type: chType, when: chWhen.trim(), status: "open" },
       });
-      toast.success(`Sfida a ${t?.label} lanciata!`);
+      toast.success(`${t("public_chat.challenge_sent")}: ${t2?.label || ""}`);
       setShowChallenge(false); setChWhen(""); setChNote(""); setChType("pingpong");
       fetchMsgs();
-    } catch { toast.error("Errore sfida"); }
+    } catch { toast.error(t("common.error")); }
   };
 
   const acceptChallenge = async (id) => {

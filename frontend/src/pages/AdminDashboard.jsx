@@ -284,7 +284,7 @@ const CouponsAdminTab = ({ tpls, history, guests, reload }) => {
           </select>
           <select data-testid="admin-gift-template" value={sendForm.template_id} onChange={(e)=>setSendForm({...sendForm, template_id: e.target.value})} className="input-brutal" required>
             <option value="">Coupon…</option>
-            {tpls.map((t) => (<option key={t.id} value={t.id}>{t.emoji} {t.name} · {fmtPriceAdmin(t.price_cents)}</option>))}
+            {tpls.map((tp) => (<option key={tp.id} value={tp.id}>{`${tp.emoji} ${tp.name} · ${fmtPriceAdmin(tp.price_cents)}`}</option>))}
           </select>
           <textarea data-testid="admin-gift-msg" value={sendForm.message} onChange={(e)=>setSendForm({...sendForm, message: e.target.value})} placeholder="Messaggio (opzionale)" className="input-brutal min-h-[60px]"/>
           <button data-testid="admin-gift-send" type="submit" disabled={sending} className="btn-secondary w-full inline-flex items-center justify-center gap-2"><Gift size={16}/> Invia in omaggio</button>
