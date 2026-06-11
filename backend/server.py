@@ -93,6 +93,8 @@ class Message(BaseModel):
     sender_role: Literal["guest", "reception", "ai"] = "guest"
     recipient_id: Optional[str] = None
     content: str
+    kind: Literal["text", "challenge"] = "text"
+    meta: Optional[dict] = None
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -115,6 +117,8 @@ class MessageCreateReq(BaseModel):
     channel: Literal["public", "reception", "private", "ai"]
     content: str
     recipient_id: Optional[str] = None
+    kind: Literal["text", "challenge"] = "text"
+    meta: Optional[dict] = None
 
 
 class EventCreateReq(BaseModel):
@@ -334,6 +338,8 @@ async def send_message(req: MessageCreateReq, guest: Guest = Depends(get_current
         sender_role="guest",
         recipient_id=req.recipient_id,
         content=content[:2000],
+        kind=req.kind,
+        meta=req.meta,
     )
     await db.messages.insert_one(msg.model_dump())
 
@@ -372,6 +378,26 @@ async def send_message(req: MessageCreateReq, guest: Guest = Depends(get_current
             await db.messages.insert_one(err_msg.model_dump())
 
     return msg.model_dump()
+
+
+@api_router.post("/messages/{message_id}/accept")
+async def accept_challenge(message_id: str, guest: Guest = Depends(get_current_guest)):
+    msg = await db.messages.find_one({"id": message_id, "hotel_id": guest.hotel_id}, {"_id": 0})
+    if not msg:
+        raise HTTPException(404, "Messaggio non trovato")
+    if msg.get("kind") != "challenge":
+        raise HTTPException(400, "Non è una sfida")
+    if msg["sender_id"] == guest.id:
+        raise HTTPException(400, "Non puoi accettare la tua sfida")
+    meta = msg.get("meta") or {}
+    if meta.get("status") == "accepted":
+        raise HTTPException(409, "Sfida già accettata")
+    meta["status"] = "accepted"
+    meta["accepted_by"] = guest.id
+    meta["accepted_nickname"] = guest.nickname
+    meta["accepted_at"] = now_iso()
+    await db.messages.update_one({"id": message_id}, {"$set": {"meta": meta}})
+    return {"ok": True, "meta": meta}
 
 
 # --- Admin auth ---
