@@ -19,7 +19,7 @@ export default function Landing() {
       {/* Nav */}
       <header className="bg-cream/80 backdrop-blur-xl border-b-2 border-ink sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
-          <Logo size={48} withText textClass="text-3xl"/>
+          <Logo size={56} withText textClass="text-3xl"/>
           <div className="flex items-center gap-3">
             <Link to="/admin/login" data-testid="nav-admin-link" className="hidden sm:inline-flex text-sm font-bold text-slate-700 hover:text-ink">
               Per hotel
@@ -56,11 +56,11 @@ export default function Landing() {
         <div className="lg:col-span-5">
           <div className="relative">
             <div className="brutal-card p-5 rotate-2">
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-3 mb-3">
                 <img
-                  src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&q=80&auto=format&fit=crop"
+                  src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&q=80&auto=format&fit=crop&crop=faces"
                   alt="Sofia"
-                  className="w-10 h-10 rounded-full border-2 border-ink object-cover shadow-brutal-sm"
+                  className="w-11 h-11 rounded-full border-2 border-ink object-cover object-center shadow-brutal-sm shrink-0"
                 />
                 <div>
                   <p className="font-bold text-sm">Sofia · 412</p>

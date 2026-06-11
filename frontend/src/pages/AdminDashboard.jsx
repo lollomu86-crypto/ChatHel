@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, clearAdminToken } from "../lib/api";
 import { toast } from "sonner";
-import { LogOut, Plus, Trash2, Users, CalendarHeart, MapPinned, MessageSquare, Send } from "lucide-react";
+import { LogOut, Plus, Trash2, Users, CalendarHeart, MapPinned, MessageSquare, Send, QrCode } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import Logo from "../components/Logo";
 
 const Tab = ({ active, onClick, children, testid }) => (
@@ -22,6 +23,7 @@ export default function AdminDashboard() {
   const [activeThread, setActiveThread] = useState(null);
   const [threadMsgs, setThreadMsgs] = useState([]);
   const [replyText, setReplyText] = useState("");
+  const [showQR, setShowQR] = useState(false);
 
   const loadAll = async () => {
     try {
@@ -57,6 +59,7 @@ export default function AdminDashboard() {
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline tag-pill">Codice: {hotel?.access_code}</span>
+            <button data-testid="admin-show-qr-btn" onClick={() => setShowQR(true)} className="btn-outline !py-2 !px-4 inline-flex items-center gap-2 text-sm"><QrCode size={14}/> QR ospiti</button>
             <button data-testid="admin-logout-btn" onClick={logout} className="btn-outline !py-2 !px-4 inline-flex items-center gap-2 text-sm"><LogOut size={14}/> Esci</button>
           </div>
         </div>
@@ -82,6 +85,20 @@ export default function AdminDashboard() {
           />
         )}
       </main>
+      {showQR && hotel && (
+        <div className="fixed inset-0 bg-ink/50 z-50 flex items-center justify-center p-4" onClick={() => setShowQR(false)}>
+          <div className="brutal-card p-6 w-full max-w-md bg-white text-center" onClick={(e) => e.stopPropagation()}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Stampa / mostra agli ospiti</p>
+            <h3 className="font-display text-2xl font-black mt-1 mb-4">QR di accesso · {hotel.name}</h3>
+            <div className="inline-block p-4 bg-white border-2 border-ink rounded-xl shadow-brutal-sm">
+              <QRCodeSVG value={hotel.access_code} size={220} bgColor="#FFFFFF" fgColor="#0A0A0A" level="M" includeMargin={false}/>
+            </div>
+            <p className="mt-4 font-mono text-lg font-black tracking-widest">{hotel.access_code}</p>
+            <p className="text-sm text-slate-600 mt-2">Gli ospiti inquadrano il QR dalla schermata "Entra" oppure inseriscono il codice manualmente.</p>
+            <button onClick={() => setShowQR(false)} className="btn-primary mt-5">Chiudi</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
