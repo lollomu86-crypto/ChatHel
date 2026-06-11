@@ -6,6 +6,7 @@ import { MessageSquare, CalendarHeart, Users, Sparkles, Hotel, LogOut, User, Gif
 import { toast } from "sonner";
 import Logo from "../components/Logo";
 import LanguageSwitcher from "../components/LanguageSwitcher";
+import PushPrompt from "../components/PushPrompt";
 
 import HomeFeed from "./guest/HomeFeed";
 import PublicChat from "./guest/PublicChat";
@@ -96,6 +97,7 @@ export default function GuestApp() {
       </main>
 
       {/* Bottom tabs */}
+      <PushPrompt />
       <nav className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40">
         <div className="flex gap-1 p-1 bg-white border-2 border-ink rounded-2xl shadow-brutal">
           {TABS_DEF.map((tb) => (

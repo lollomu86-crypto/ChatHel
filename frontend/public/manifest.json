@@ -1,0 +1,15 @@
+{
+  "short_name": "ChatHel",
+  "name": "ChatHel — Hotel Connect",
+  "description": "La rete chiusa per ospiti dell'hotel.",
+  "icons": [
+    { "src": "/chathel-symbol.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/chathel-symbol.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFDF7",
+  "theme_color": "#1E40E0",
+  "lang": "it",
+  "orientation": "portrait-primary"
+}

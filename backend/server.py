@@ -11,6 +11,10 @@ from typing import List, Optional, Literal, Dict, Set
 import uuid
 from datetime import datetime, timezone
 from emergentintegrations.llm.chat import LlmChat, UserMessage
+from pywebpush import webpush, WebPushException
+from py_vapid import Vapid
+import base64
+import json as _json
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -202,6 +206,10 @@ class TranslateReq(BaseModel):
     target_lang: str
 
 
+class PushSubReq(BaseModel):
+    subscription: dict
+
+
 # ===== Auth deps =====
 async def get_current_guest(x_guest_token: Optional[str] = Header(None)) -> Guest:
     if not x_guest_token:
@@ -271,27 +279,52 @@ class ConnectionManager:
         hotel_id = msg["hotel_id"]
         channel = msg["channel"]
         payload = {"type": "message", "message": msg}
+        # Push notification helpers
+        sender_nick = msg.get("sender_nickname", "?")
+        preview = (msg.get("content") or "")[:120]
+        push_payload = lambda title, body, url="/app": {
+            "title": title, "body": body,
+            "icon": "/chathel-symbol.png",
+            "url": url,
+            "tag": f"chathel-{msg['id']}",
+        }
         if channel == "public":
             await self.send_to_hotel_guests(hotel_id, payload)
             await self.send_to_admins(hotel_id, payload)
+            if msg.get("kind") == "challenge":
+                await push_to_hotel(hotel_id, push_payload("🏆 Nuova sfida!", f"{sender_nick} ha lanciato una sfida"), exclude_guest=msg.get("sender_id"))
         elif channel == "private":
             await self.send_to_guest(msg["sender_id"], payload)
-            if msg.get("recipient_id"): await self.send_to_guest(msg["recipient_id"], payload)
+            if msg.get("recipient_id"):
+                await self.send_to_guest(msg["recipient_id"], payload)
+                await push_to_guest(msg["recipient_id"], push_payload(f"💬 {sender_nick}", preview, "/app/guests/" + msg["sender_id"]))
         elif channel == "reception":
             if msg.get("sender_role") == "reception" and msg.get("recipient_id"):
                 await self.send_to_guest(msg["recipient_id"], payload)
+                await push_to_guest(msg["recipient_id"], push_payload("📞 Reception", preview, "/app/reception"))
             else:
                 await self.send_to_guest(msg["sender_id"], payload)
             await self.send_to_admins(hotel_id, payload)
         elif channel == "ai":
             await self.send_to_guest(msg["sender_id"], payload)
-            if msg.get("recipient_id"): await self.send_to_guest(msg["recipient_id"], payload)
+            if msg.get("recipient_id"):
+                await self.send_to_guest(msg["recipient_id"], payload)
+                if msg.get("sender_role") == "ai":
+                    await push_to_guest(msg["recipient_id"], push_payload("✨ Concierge AI", preview, "/app/ai"))
 
     async def broadcast_message_update(self, msg: dict):
         hotel_id = msg["hotel_id"]
         payload = {"type": "message_update", "message": msg}
         await self.send_to_hotel_guests(hotel_id, payload)
         await self.send_to_admins(hotel_id, payload)
+        # Notify the challenger that someone accepted
+        if msg.get("kind") == "challenge" and (msg.get("meta") or {}).get("status") == "accepted":
+            await push_to_guest(msg["sender_id"], {
+                "title": "🔥 Sfida accettata!",
+                "body": f"{msg['meta'].get('accepted_nickname','?')} ha accettato la tua sfida",
+                "icon": "/chathel-symbol.png",
+                "url": "/app/public",
+            })
 
     async def broadcast_coupon(self, coupon: dict, event: str = "coupon_received"):
         hotel_id = coupon["hotel_id"]
@@ -300,13 +333,91 @@ class ConnectionManager:
         if coupon["sender_type"] == "guest":
             await self.send_to_guest(coupon["sender_id"], payload)
         await self.send_to_admins(hotel_id, payload)
+        if event == "coupon_received":
+            sender = coupon["sender_nickname"] if coupon["sender_type"] == "guest" else "L'hotel"
+            await push_to_guest(coupon["recipient_id"], {
+                "title": f"🎁 {coupon['emoji']} {coupon['name']}",
+                "body": f"{sender} ti ha regalato un coupon!",
+                "icon": "/chathel-symbol.png",
+                "url": "/app/coupons",
+            })
 
     async def broadcast_event_published(self, hotel_id: str, event: dict):
         payload = {"type": "event_published", "event": event}
         await self.send_to_hotel_guests(hotel_id, payload)
+        await push_to_hotel(hotel_id, {
+            "title": f"📅 {event['title']}",
+            "body": f"{event.get('event_time','')} · {event.get('location','')}".strip(" ·"),
+            "icon": "/chathel-symbol.png",
+            "url": "/app",
+        })
 
 
 manager = ConnectionManager()
+
+
+# ===== Web Push (VAPID) =====
+VAPID_CLAIMS = {"sub": "mailto:admin@chathel.app"}
+_vapid_keys: dict = {}
+
+
+async def ensure_vapid_keys():
+    """Load or generate VAPID keys once. Stored in db.settings."""
+    global _vapid_keys
+    doc = await db.settings.find_one({"key": "vapid"}, {"_id": 0})
+    if doc:
+        _vapid_keys = doc["value"]
+        return
+    v = Vapid()
+    v.generate_keys()
+    # Serialize to PEM for storage
+    priv_pem = v.private_pem().decode() if isinstance(v.private_pem(), bytes) else v.private_pem()
+    # Public key as raw 65-byte uncompressed, base64url (web-push spec)
+    pub_numbers = v.public_key.public_numbers()
+    x = pub_numbers.x.to_bytes(32, "big"); y = pub_numbers.y.to_bytes(32, "big")
+    pub_raw = b"\x04" + x + y
+    pub_b64 = base64.urlsafe_b64encode(pub_raw).decode().rstrip("=")
+    _vapid_keys = {"private_pem": priv_pem, "public_key": pub_b64}
+    await db.settings.insert_one({"key": "vapid", "value": _vapid_keys})
+    logger.info("Generated VAPID keys")
+
+
+def send_push_sync(subscription: dict, payload: dict) -> bool:
+    try:
+        webpush(
+            subscription_info=subscription,
+            data=_json.dumps(payload),
+            vapid_private_key=_vapid_keys["private_pem"],
+            vapid_claims=VAPID_CLAIMS.copy(),
+        )
+        return True
+    except WebPushException as e:
+        logger.warning("Push failed: %s", e)
+        return False
+    except Exception as e:
+        logger.exception("Push error: %s", e)
+        return False
+
+
+async def push_to_guest(guest_id: str, payload: dict):
+    subs = await db.push_subs.find({"guest_id": guest_id}, {"_id": 0}).to_list(20)
+    dead = []
+    for s in subs:
+        ok = await asyncio.to_thread(send_push_sync, s["subscription"], payload)
+        if not ok:
+            dead.append(s["endpoint"])
+    if dead:
+        await db.push_subs.delete_many({"endpoint": {"$in": dead}})
+
+
+async def push_to_hotel(hotel_id: str, payload: dict, exclude_guest: Optional[str] = None):
+    q = {"hotel_id": hotel_id}
+    if exclude_guest: q["guest_id"] = {"$ne": exclude_guest}
+    subs = await db.push_subs.find(q, {"_id": 0}).to_list(2000)
+    grouped: Dict[str, List] = {}
+    for s in subs:
+        grouped.setdefault(s["guest_id"], []).append(s)
+    await asyncio.gather(*[push_to_guest(gid, payload) for gid in grouped.keys()])
 
 
 DAILY_QUESTIONS = [
@@ -389,6 +500,48 @@ async def update_status(req: StatusUpdateReq, guest: Guest = Depends(get_current
 async def list_guests(guest: Guest = Depends(get_current_guest)):
     docs = await db.guests.find({"hotel_id": guest.hotel_id, "active": True}, {"_id": 0, "session_token": 0}).to_list(500)
     return docs
+
+
+# --- Push notifications (Web Push / VAPID) ---
+@api_router.get("/push/vapid-public-key")
+async def push_vapid_pub():
+    return {"public_key": _vapid_keys.get("public_key", "")}
+
+
+@api_router.post("/push/subscribe")
+async def push_subscribe(req: PushSubReq, guest: Guest = Depends(get_current_guest)):
+    sub = req.subscription or {}
+    endpoint = sub.get("endpoint")
+    if not endpoint:
+        raise HTTPException(400, "Invalid subscription")
+    doc = {
+        "endpoint": endpoint,
+        "guest_id": guest.id,
+        "hotel_id": guest.hotel_id,
+        "subscription": sub,
+        "created_at": now_iso(),
+    }
+    await db.push_subs.update_one({"endpoint": endpoint}, {"$set": doc}, upsert=True)
+    return {"ok": True}
+
+
+@api_router.post("/push/unsubscribe")
+async def push_unsubscribe(req: PushSubReq, guest: Guest = Depends(get_current_guest)):
+    endpoint = (req.subscription or {}).get("endpoint")
+    if endpoint:
+        await db.push_subs.delete_one({"endpoint": endpoint, "guest_id": guest.id})
+    return {"ok": True}
+
+
+@api_router.post("/push/test")
+async def push_test(guest: Guest = Depends(get_current_guest)):
+    await push_to_guest(guest.id, {
+        "title": "ChatHel",
+        "body": "Notifiche attive ✓ — non perderai più nulla.",
+        "icon": "/chathel-symbol.png",
+        "url": "/app",
+    })
+    return {"ok": True}
 
 
 @api_router.post("/translate")
@@ -824,6 +977,7 @@ async def admin_redeem_coupon(coupon_id: str, hotel: Hotel = Depends(get_current
 
 @app.on_event("startup")
 async def bootstrap():
+    await ensure_vapid_keys()
     existing = await db.hotels.find_one({"access_code": "WELCOME2026"})
     if not existing:
         hotel = Hotel(
