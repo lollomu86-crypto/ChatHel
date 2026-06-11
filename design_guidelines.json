@@ -1,0 +1,143 @@
+{
+  "project_name": "ChatHel",
+  "theme": "LIGHT",
+  "archetype": "Archetype 3 (Pastel & Soft) mixed with Neo-Brutalist Vibrant Play",
+  "description": "A modern, youth-focused social messaging app and hotel dashboard. It uses a 'Neo-Brutalist' aesthetic to balance approachability (pastels) with high energy (vibrant accents and hard shadows), avoiding the generic corporate or childish looks.",
+  "typography": {
+    "strategy": "Swiss Brutalist meets Soft Utility",
+    "heading_font": "Cabinet Grotesk",
+    "body_font": "DM Sans",
+    "rules": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter text-slate-900",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-900",
+      "h3": "text-xl sm:text-2xl font-bold tracking-tight text-slate-900",
+      "h4": "text-lg sm:text-xl font-bold text-slate-900",
+      "body": "text-base font-medium leading-relaxed text-slate-800",
+      "labels_overlines": "text-xs font-bold uppercase tracking-[0.2em] text-slate-600"
+    }
+  },
+  "colors": {
+    "background": {
+      "default": "#FFFDF7",
+      "chat_canvas": "#F4F5F9",
+      "admin_canvas": "#E2E8F0"
+    },
+    "surface": {
+      "card": "#FFFFFF",
+      "chat_bubble_self": "#D8F3DC",
+      "chat_bubble_other": "#FFFFFF",
+      "chat_bubble_reception": "#FFE5D9"
+    },
+    "primary": {
+      "base": "#FF4B4B",
+      "hover": "#FF3333",
+      "foreground": "#FFFFFF"
+    },
+    "secondary": {
+      "base": "#4361EE",
+      "hover": "#3B55D9",
+      "foreground": "#FFFFFF"
+    },
+    "accent": {
+      "yellow": "#F9DC5C",
+      "mint": "#00E676"
+    },
+    "neutral": {
+      "border_hard": "#0A0A0A",
+      "text_main": "#0A0A0A",
+      "text_muted": "#475569"
+    }
+  },
+  "spacing_and_layout": {
+    "philosophy": "Generous Spacing with Hard Boundaries",
+    "containers": "Always apply padding (p-6 or p-8) inside bordered containers to prevent collision.",
+    "grids": {
+      "dashboard": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 align-items-start",
+      "events_board": "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8",
+      "chat_layout": "flex flex-col h-screen max-h-screen overflow-hidden"
+    },
+    "alignment": "Left-align dense text and messages. Asymmetrical grid layouts for the events board.",
+    "image_constraints": "max-h-[80vh] object-cover"
+  },
+  "surfaces": {
+    "neo_brutalist_cards": {
+      "classes": "bg-white border-2 border-[#0A0A0A] rounded-xl shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] transition-transform hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(10,10,10,1)]",
+      "usage": "Event cards, Admin widgets, Hotel Area booking cards"
+    },
+    "chat_bubbles": {
+      "self": "bg-[#D8F3DC] border-2 border-[#0A0A0A] rounded-2xl rounded-tr-none px-4 py-3 shadow-[2px_2px_0px_0px_rgba(10,10,10,1)] text-[#0A0A0A] font-medium",
+      "other": "bg-white border-2 border-[#0A0A0A] rounded-2xl rounded-tl-none px-4 py-3 shadow-[2px_2px_0px_0px_rgba(10,10,10,1)] text-[#0A0A0A] font-medium",
+      "reception": "bg-[#FFE5D9] border-2 border-[#0A0A0A] rounded-2xl rounded-tl-none px-4 py-3 shadow-[2px_2px_0px_0px_rgba(10,10,10,1)] text-[#0A0A0A] font-medium"
+    },
+    "glass_header": {
+      "classes": "bg-[#FFFDF7]/80 backdrop-blur-xl border-b-2 border-[#0A0A0A] sticky top-0 z-50",
+      "usage": "Top navigation bar for mobile chat app and admin dashboard"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#FF4B4B] text-white border-2 border-[#0A0A0A] rounded-full px-6 py-3 font-bold shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(10,10,10,1)] active:translate-y-1 active:shadow-[0px_0px_0px_0px_rgba(10,10,10,1)] transition-all",
+      "secondary": "bg-[#4361EE] text-white border-2 border-[#0A0A0A] rounded-full px-6 py-3 font-bold shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(10,10,10,1)] active:translate-y-1 active:shadow-[0px_0px_0px_0px_rgba(10,10,10,1)] transition-all",
+      "outline": "bg-white text-[#0A0A0A] border-2 border-[#0A0A0A] rounded-full px-6 py-3 font-bold shadow-[4px_4px_0px_0px_rgba(10,10,10,1)] hover:-translate-y-0.5 hover:bg-[#F9DC5C] transition-all"
+    },
+    "inputs": {
+      "text": "bg-white border-2 border-[#0A0A0A] rounded-xl px-4 py-3 text-[#0A0A0A] font-medium placeholder:text-slate-400 focus:outline-none focus:ring-0 focus:border-[#4361EE] focus:shadow-[4px_4px_0px_0px_rgba(67,97,238,1)] transition-shadow"
+    },
+    "navigation_tabs": {
+      "classes": "flex gap-2 p-1 bg-white border-2 border-[#0A0A0A] rounded-xl shadow-[4px_4px_0px_0px_rgba(10,10,10,1)]",
+      "active_tab": "bg-[#F9DC5C] text-[#0A0A0A] font-bold border-2 border-[#0A0A0A] rounded-lg shadow-[2px_2px_0px_0px_rgba(10,10,10,1)]",
+      "inactive_tab": "text-slate-600 font-bold hover:bg-slate-100 rounded-lg"
+    }
+  },
+  "icons": {
+    "library": "lucide-react",
+    "stroke_width": 2.5,
+    "style": "bold, geometric, playful"
+  },
+  "motion": {
+    "hover": "transition-transform duration-200 ease-out",
+    "active": "transition-all duration-100 ease-in",
+    "page_transition": "animate-in fade-in slide-in-from-bottom-4 duration-300"
+  },
+  "media": {
+    "images": [
+      {
+        "url": "https://images.unsplash.com/photo-1718096551429-8cafaba752db?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHwxfHxwb29sJTIwcGFydHklMjBldmVudHxlbnwwfHx8fDE3ODExOTc3NzZ8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Lush green pool party event",
+        "category": "events_board_pool_party"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1660557989725-f511e9fa6267?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzF8MHwxfHNlYXJjaHwxfHxib3V0aXF1ZSUyMGhvdGVsJTIwbG91bmdlJTIwdmlicmFudHxlbnwwfHx8fDE3ODExOTc3NzV8MA&ixlib=rb-4.1.0&q=85",
+        "category": "hotel_areas_lounge",
+        "description": "Vibrant boutique hotel lounge"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1488345979593-09db0f85545f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBsdXh1cnklMjBzcGElMjBob3RlbHxlbnwwfHx8fDE3ODExOTc3NzZ8MA&ixlib=rb-4.1.0&q=85",
+        "category": "hotel_areas_spa",
+        "description": "Modern luxury spa pool"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1541701494587-cb58502866ab?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjV8MHwxfHNlYXJjaHwxfHxhcHAlMjBhYnN0cmFjdCUyMGF2YXRhciUyMGNvbG9yZnVsfGVufDB8fHx8MTc4MTE5Nzc3NXww&ixlib=rb-4.1.0&q=85",
+        "category": "guest_avatar_placeholder_1",
+        "description": "Blue and orange abstract smoke avatar"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1556139930-c23fa4a4f934?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjV8MHwxfHNlYXJjaHwyfHxhcHAlMjBhYnN0cmFjdCUyMGF2YXRhciUyMGNvbG9yZnVsfGVufDB8fHx8MTc4MTE5Nzc3NXww&ixlib=rb-4.1.0&q=85",
+        "category": "guest_avatar_placeholder_2",
+        "description": "Black and brown abstract painting avatar"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Do NOT use TypeScript files (.tsx), use standard JavaScript (.js or .jsx) as defined in the environment.",
+    "Do not use generic fonts like Inter. Import 'Cabinet Grotesk' or 'Outfit' for headings and 'DM Sans' for body text from Google Fonts.",
+    "Implement the 'Neo-Brutalist' aesthetic heavily. This means solid black borders (`border-2 border-black` or `border-[#0A0A0A]`) on cards, buttons, and inputs.",
+    "Use solid hard shadows `shadow-[4px_4px_0px_0px_rgba(10,10,10,1)]` instead of standard blurred drop shadows for all interactive elements to maintain the vibrant youth vibe.",
+    "For the chat interfaces, ensure clear visual distinction between user messages (greenish), other guests (white), and reception/AI (peach/orange) using the defined surface colors.",
+    "Never center-align long blocks of text or chat messages. Keep them left-aligned for readability.",
+    "Ensure the Admin Dashboard has a dense but structured bento-box grid layout using the neo-brutalist cards.",
+    "Mandatory: All interactive elements (buttons, inputs, chat bubbles, navigation links) MUST include a data-testid attribute formatted in kebab-case based on their role (e.g., data-testid='chat-send-button', data-testid='qr-login-input').",
+    "Do not use transparent headers without a blur or solid background. The mobile app top nav should be a sticky glass header.",
+    "For Shadcn components, override their default soft aesthetic to match the hard borders and solid colors defined in this guideline."
+  ]
+}
