@@ -1,21 +1,30 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../../lib/api";
-import { CalendarHeart, MapPin, Clock, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { CalendarHeart, MapPin, Clock, Sparkles, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
 const bookableColor = (i) => ["#FFE5D9", "#D8F3DC", "#F9DC5C", "#fff"][i % 4];
 
 export default function HomeFeed() {
+  const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [areas, setAreas] = useState([]);
+  const [daily, setDaily] = useState(null);
   const [bookingArea, setBookingArea] = useState(null);
   const [slot, setSlot] = useState("");
 
   const load = async () => {
-    const [e, a] = await Promise.all([api.get("/events"), api.get("/areas")]);
-    setEvents(e.data); setAreas(a.data);
+    const [e, a, q] = await Promise.all([api.get("/events"), api.get("/areas"), api.get("/daily-question")]);
+    setEvents(e.data); setAreas(a.data); setDaily(q.data);
   };
   useEffect(() => { load(); }, []);
+
+  const shareQuestion = () => {
+    if (!daily) return;
+    sessionStorage.setItem("chathel_prefill", `🤔 Domanda del giorno: ${daily.question}`);
+    navigate("/app/public");
+  };
 
   const book = async () => {
     if (!slot.trim()) return toast.error("Inserisci un orario");
@@ -28,6 +37,22 @@ export default function HomeFeed() {
 
   return (
     <div className="space-y-8 mt-2">
+      {daily && (
+        <section data-testid="daily-question-banner" className="brutal-card p-5 sm:p-6 bg-sun flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-11 h-11 shrink-0 rounded-xl bg-white border-2 border-ink shadow-brutal-sm flex items-center justify-center">
+              <Sparkles size={20} strokeWidth={2.5}/>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-700">Rompighiaccio · Domanda del giorno</p>
+              <p className="font-display text-xl sm:text-2xl font-black tracking-tight">{daily.question}</p>
+            </div>
+          </div>
+          <button data-testid="share-daily-question-btn" onClick={shareQuestion} className="btn-primary inline-flex items-center gap-2 self-start sm:self-auto">
+            <MessageSquare size={16}/> Condividi nella chat
+          </button>
+        </section>
+      )}
       <section>
         <div className="flex items-end justify-between mb-4">
           <div>

@@ -160,6 +160,40 @@ async def get_current_admin(x_admin_token: Optional[str] = Header(None)) -> Hote
     return Hotel(**hotel)
 
 
+DAILY_QUESTIONS = [
+    "Mare o montagna?",
+    "Caffè o cappuccino al mattino?",
+    "Cena fuori o aperitivo al tramonto?",
+    "Spiaggia all'alba o tramonto in barca?",
+    "Pizza o pasta?",
+    "Spa o palestra?",
+    "Libro o film prima di dormire?",
+    "Estate o inverno?",
+    "Città o campagna?",
+    "Avventura o relax?",
+    "Tè o tisana?",
+    "Concerti o cinema?",
+    "Mattiniero o nottambulo?",
+    "Cucina italiana o internazionale?",
+    "Hotel design o boutique storico?",
+    "Mojito o spritz?",
+    "Sushi o tapas?",
+    "Yoga o running?",
+    "Nuoto o trekking?",
+    "Bici o moto?",
+    "Vinile o playlist?",
+    "Roma o Milano?",
+    "Napoli o Palermo?",
+    "Vino rosso o bianco?",
+    "Dolce o salato a colazione?",
+    "Maratona di serie TV o un libro?",
+    "Viaggio organizzato o avventura libera?",
+    "Foto col cellulare o reflex?",
+    "Cena romantica o serata con amici?",
+    "Brunch o aperitivo?",
+]
+
+
 # ===== Routes =====
 @api_router.get("/")
 async def root():
@@ -206,6 +240,14 @@ async def update_status(req: StatusUpdateReq, guest: Guest = Depends(get_current
 async def list_guests(guest: Guest = Depends(get_current_guest)):
     docs = await db.guests.find({"hotel_id": guest.hotel_id, "active": True}, {"_id": 0, "session_token": 0}).to_list(500)
     return docs
+
+
+# --- Daily question (rompighiaccio) ---
+@api_router.get("/daily-question")
+async def daily_question(guest: Guest = Depends(get_current_guest)):
+    day = datetime.now(timezone.utc).timetuple().tm_yday
+    q = DAILY_QUESTIONS[day % len(DAILY_QUESTIONS)]
+    return {"question": q, "day": day}
 
 
 # --- Events ---

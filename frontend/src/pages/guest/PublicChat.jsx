@@ -30,8 +30,9 @@ export const ChatView = ({ messages, me, otherName, variant = "public", emptyTex
   );
 };
 
-export const ChatComposer = ({ onSend, disabled, placeholder = "Scrivi un messaggio…" }) => {
-  const [t, setT] = useState("");
+export const ChatComposer = ({ onSend, disabled, placeholder = "Scrivi un messaggio…", initialText = "" }) => {
+  const [t, setT] = useState(initialText);
+  useEffect(() => { if (initialText) setT(initialText); }, [initialText]);
   const submit = (e) => {
     e.preventDefault();
     if (!t.trim()) return;
@@ -50,6 +51,11 @@ export const ChatComposer = ({ onSend, disabled, placeholder = "Scrivi un messag
 
 export default function PublicChat({ me }) {
   const [msgs, setMsgs] = useState([]);
+  const [prefill, setPrefill] = useState("");
+  useEffect(() => {
+    const p = sessionStorage.getItem("chathel_prefill");
+    if (p) { setPrefill(p); sessionStorage.removeItem("chathel_prefill"); }
+  }, []);
   const fetchMsgs = async () => {
     try { const { data } = await api.get("/messages/public"); setMsgs(data); } catch {}
   };
@@ -68,7 +74,7 @@ export default function PublicChat({ me }) {
         <p className="text-sm text-slate-600">Tutti gli ospiti dell'hotel possono leggere e rispondere.</p>
       </div>
       <ChatView messages={msgs} me={me} variant="public" />
-      <ChatComposer onSend={send} />
+      <ChatComposer onSend={send} initialText={prefill} />
     </div>
   );
 }
