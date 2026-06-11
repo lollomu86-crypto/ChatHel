@@ -1,0 +1,26 @@
+{
+  "summary": "Completed full backend (17/17 pytest) and frontend e2e testing for ChatHel. All critical flows (guest login, public/private/reception/AI chat, area booking, profile, admin events/areas, force checkout, session invalidation) work. AI integration with GPT-5.2 via Emergent LLM key returned real Italian responses (e.g., 'La piscina è aperta tutti i giorni dalle 8:00 alle 22:00').",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "GuestApp Home", "issues": ["Active bottom-nav button (yellow Home) overlaps and partially hides the 'Prenota' CTA on bookable area cards in mobile-like widths; consider extra bottom padding on scrollable content"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": ["Optional: increase bottom padding in GuestApp content area so the fixed bottom nav doesn't overlap area-card 'Prenota' buttons."],
+  "critical_code_review_comments": [
+    "server.py uses deprecated @app.on_event('startup'/'shutdown'); migrate to FastAPI lifespan for forward compatibility",
+    "reception threads aggregation uses sender_role 'reception' literal — already consistent; ok",
+    "AI fallback returns error message body to client but always 200; acceptable for UX, but consider logging error class for ops",
+    "/api/guests excludes session_token but list includes self — frontend must filter; consider filtering server-side"
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "WELCOME2026 / admin123 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Backend auto-seeds hotel + 4 areas + 3 events on startup. Tests create TEST_-prefixed transient guests/events/areas (events/areas cleaned up).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest at /app/backend/tests/backend_test.py covers auth, messaging (public/private/reception/AI), bookings, admin CRUD, checkout. Frontend uses data-testids as documented. AI endpoint /api/messages with channel='ai' returns the user message immediately and stores AI reply asynchronously (still inside same request handler) — GET /api/messages/ai retrieves both within ~3-5s. Admin reception threads endpoint returns by guest_id; admin UI shows nicknames."
+}
