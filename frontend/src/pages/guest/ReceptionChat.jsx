@@ -1,12 +1,24 @@
 import React, { useEffect, useState } from "react";
-import { api } from "../../lib/api";
+import { api, getGuestToken } from "../../lib/api";
+import useChatSocket from "../../lib/useChatSocket";
 import { ChatView, ChatComposer } from "./PublicChat";
 import { toast } from "sonner";
 
 export default function ReceptionChat({ me }) {
   const [msgs, setMsgs] = useState([]);
   const load = async () => { try { const { data } = await api.get("/messages/reception"); setMsgs(data); } catch {} };
-  useEffect(() => { load(); const t = setInterval(load, 3000); return () => clearInterval(t); }, []);
+  useEffect(() => { load(); const t = setInterval(load, 20000); return () => clearInterval(t); }, []);
+
+  useChatSocket({
+    token: getGuestToken(),
+    onEvent: (ev) => {
+      if (ev.type !== "message" || ev.message?.channel !== "reception") return;
+      const m = ev.message;
+      if (m.sender_id === me?.id || m.recipient_id === me?.id) {
+        setMsgs((prev) => prev.some((x) => x.id === m.id) ? prev : [...prev, m]);
+      }
+    },
+  });
 
   const send = async (content) => {
     try { await api.post("/messages", { channel: "reception", content }); load(); }

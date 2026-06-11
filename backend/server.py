@@ -1,12 +1,13 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Header, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import asyncio
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict, Set
 import uuid
 from datetime import datetime, timezone
 from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -162,6 +163,78 @@ async def get_current_admin(x_admin_token: Optional[str] = Header(None)) -> Hote
     if not hotel:
         raise HTTPException(401, "Hotel not found")
     return Hotel(**hotel)
+
+
+# ===== Connection Manager (WebSocket) =====
+class ConnectionManager:
+    def __init__(self) -> None:
+        self.guest_sockets: Dict[str, List[WebSocket]] = {}
+        self.hotel_guests: Dict[str, Set[str]] = {}
+        self.admin_sockets: Dict[str, List[WebSocket]] = {}
+
+    async def connect_guest(self, guest_id: str, hotel_id: str, ws: WebSocket):
+        self.guest_sockets.setdefault(guest_id, []).append(ws)
+        self.hotel_guests.setdefault(hotel_id, set()).add(guest_id)
+
+    def disconnect_guest(self, guest_id: str, hotel_id: str, ws: WebSocket):
+        if guest_id in self.guest_sockets:
+            try: self.guest_sockets[guest_id].remove(ws)
+            except ValueError: pass
+            if not self.guest_sockets[guest_id]:
+                del self.guest_sockets[guest_id]
+                if hotel_id in self.hotel_guests:
+                    self.hotel_guests[hotel_id].discard(guest_id)
+
+    async def connect_admin(self, hotel_id: str, ws: WebSocket):
+        self.admin_sockets.setdefault(hotel_id, []).append(ws)
+
+    def disconnect_admin(self, hotel_id: str, ws: WebSocket):
+        if hotel_id in self.admin_sockets:
+            try: self.admin_sockets[hotel_id].remove(ws)
+            except ValueError: pass
+
+    async def _safe_send(self, ws: WebSocket, data: dict):
+        try: await ws.send_json(data)
+        except Exception: pass
+
+    async def send_to_guest(self, guest_id: str, data: dict):
+        await asyncio.gather(*[self._safe_send(ws, data) for ws in list(self.guest_sockets.get(guest_id, []))])
+
+    async def send_to_hotel_guests(self, hotel_id: str, data: dict, exclude: Optional[str] = None):
+        targets = [gid for gid in list(self.hotel_guests.get(hotel_id, set())) if gid != exclude]
+        await asyncio.gather(*[self.send_to_guest(gid, data) for gid in targets])
+
+    async def send_to_admins(self, hotel_id: str, data: dict):
+        await asyncio.gather(*[self._safe_send(ws, data) for ws in list(self.admin_sockets.get(hotel_id, []))])
+
+    async def broadcast_message(self, msg: dict):
+        hotel_id = msg["hotel_id"]
+        channel = msg["channel"]
+        payload = {"type": "message", "message": msg}
+        if channel == "public":
+            await self.send_to_hotel_guests(hotel_id, payload)
+            await self.send_to_admins(hotel_id, payload)
+        elif channel == "private":
+            await self.send_to_guest(msg["sender_id"], payload)
+            if msg.get("recipient_id"): await self.send_to_guest(msg["recipient_id"], payload)
+        elif channel == "reception":
+            if msg.get("sender_role") == "reception" and msg.get("recipient_id"):
+                await self.send_to_guest(msg["recipient_id"], payload)
+            else:
+                await self.send_to_guest(msg["sender_id"], payload)
+            await self.send_to_admins(hotel_id, payload)
+        elif channel == "ai":
+            await self.send_to_guest(msg["sender_id"], payload)
+            if msg.get("recipient_id"): await self.send_to_guest(msg["recipient_id"], payload)
+
+    async def broadcast_message_update(self, msg: dict):
+        hotel_id = msg["hotel_id"]
+        payload = {"type": "message_update", "message": msg}
+        await self.send_to_hotel_guests(hotel_id, payload)
+        await self.send_to_admins(hotel_id, payload)
+
+
+manager = ConnectionManager()
 
 
 DAILY_QUESTIONS = [
@@ -342,6 +415,7 @@ async def send_message(req: MessageCreateReq, guest: Guest = Depends(get_current
         meta=req.meta,
     )
     await db.messages.insert_one(msg.model_dump())
+    await manager.broadcast_message(msg.model_dump())
 
     # If channel is AI, generate response
     if req.channel == "ai":
@@ -364,6 +438,7 @@ async def send_message(req: MessageCreateReq, guest: Guest = Depends(get_current
                 content=str(reply),
             )
             await db.messages.insert_one(ai_msg.model_dump())
+            await manager.broadcast_message(ai_msg.model_dump())
         except Exception as e:
             logger.exception("AI error")
             err_msg = Message(
@@ -376,6 +451,7 @@ async def send_message(req: MessageCreateReq, guest: Guest = Depends(get_current
                 content=f"Mi dispiace, sono temporaneamente non disponibile. ({type(e).__name__})",
             )
             await db.messages.insert_one(err_msg.model_dump())
+            await manager.broadcast_message(err_msg.model_dump())
 
     return msg.model_dump()
 
@@ -397,6 +473,9 @@ async def accept_challenge(message_id: str, guest: Guest = Depends(get_current_g
     meta["accepted_nickname"] = guest.nickname
     meta["accepted_at"] = now_iso()
     await db.messages.update_one({"id": message_id}, {"$set": {"meta": meta}})
+    updated = await db.messages.find_one({"id": message_id}, {"_id": 0})
+    if updated:
+        await manager.broadcast_message_update(updated)
     return {"ok": True, "meta": meta}
 
 
@@ -519,6 +598,7 @@ async def admin_reception_send(guest_id: str, req: MessageCreateReq, hotel: Hote
         content=req.content[:2000],
     )
     await db.messages.insert_one(msg.model_dump())
+    await manager.broadcast_message(msg.model_dump())
     return msg.model_dump()
 
 
@@ -571,6 +651,47 @@ async def bootstrap():
 
 
 app.include_router(api_router)
+
+
+@app.websocket("/api/ws")
+async def ws_endpoint(ws: WebSocket, token: Optional[str] = None, role: str = "guest"):
+    await ws.accept()
+    if not token:
+        await ws.send_json({"type": "error", "detail": "Missing token"})
+        await ws.close(code=1008); return
+
+    guest_id = None; hotel_id = None; admin = False
+    if role == "admin":
+        sess = await db.admin_sessions.find_one({"token": token}, {"_id": 0})
+        if not sess:
+            await ws.send_json({"type": "error", "detail": "Invalid admin token"})
+            await ws.close(code=1008); return
+        hotel_id = sess["hotel_id"]
+        admin = True
+        await manager.connect_admin(hotel_id, ws)
+    else:
+        g = await db.guests.find_one({"session_token": token, "active": True}, {"_id": 0})
+        if not g:
+            await ws.send_json({"type": "error", "detail": "Invalid guest token"})
+            await ws.close(code=1008); return
+        guest_id = g["id"]; hotel_id = g["hotel_id"]
+        await manager.connect_guest(guest_id, hotel_id, ws)
+
+    await ws.send_json({"type": "ready", "role": "admin" if admin else "guest"})
+    try:
+        while True:
+            # We only use the channel for server→client push. Ignore client messages
+            # but keep the connection alive by reading.
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        if admin:
+            manager.disconnect_admin(hotel_id, ws)
+        else:
+            manager.disconnect_guest(guest_id, hotel_id, ws)
 
 app.add_middleware(
     CORSMiddleware,

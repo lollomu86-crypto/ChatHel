@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, clearAdminToken } from "../lib/api";
+import { api, clearAdminToken, getAdminToken } from "../lib/api";
+import useChatSocket from "../lib/useChatSocket";
 import { toast } from "sonner";
 import { LogOut, Plus, Trash2, Users, CalendarHeart, MapPinned, MessageSquare, Send, QrCode } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -36,13 +37,27 @@ export default function AdminDashboard() {
       clearAdminToken(); nav("/admin/login");
     }
   };
-  useEffect(() => { loadAll(); const id = setInterval(loadAll, 5000); return () => clearInterval(id); }, []);
+  useEffect(() => { loadAll(); const id = setInterval(loadAll, 20000); return () => clearInterval(id); }, []);
 
   useEffect(() => {
     if (!activeThread) return;
     const fetch = async () => { const { data } = await api.get(`/admin/reception/${activeThread.guest_id}`); setThreadMsgs(data); };
-    fetch(); const id = setInterval(fetch, 3000); return () => clearInterval(id);
+    fetch(); const id = setInterval(fetch, 20000); return () => clearInterval(id);
   }, [activeThread]);
+
+  useChatSocket({
+    token: getAdminToken(),
+    role: "admin",
+    onEvent: (ev) => {
+      if (ev.type === "message") {
+        loadAll();
+        const m = ev.message;
+        if (m.channel === "reception" && activeThread && (m.sender_id === activeThread.guest_id || m.recipient_id === activeThread.guest_id)) {
+          setThreadMsgs((prev) => prev.some((x) => x.id === m.id) ? prev : [...prev, m]);
+        }
+      }
+    },
+  });
 
   const logout = () => { clearAdminToken(); localStorage.removeItem("chathel_admin_hotel"); nav("/"); };
 

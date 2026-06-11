@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { api } from "../../lib/api";
+import { api, getGuestToken } from "../../lib/api";
+import useChatSocket from "../../lib/useChatSocket";
 import { ChatView, ChatComposer } from "./PublicChat";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -17,7 +18,21 @@ export default function PrivateChat({ me }) {
       setMsgs(m.data);
     } catch {}
   };
-  useEffect(() => { load(); const t = setInterval(load, 3000); return () => clearInterval(t); }, [id]);
+  useEffect(() => { load(); const t = setInterval(load, 20000); return () => clearInterval(t); }, [id]);
+
+  useChatSocket({
+    token: getGuestToken(),
+    onEvent: (ev) => {
+      if (ev.type !== "message" || ev.message?.channel !== "private") return;
+      const m = ev.message;
+      if (
+        (m.sender_id === id && m.recipient_id === me?.id) ||
+        (m.sender_id === me?.id && m.recipient_id === id)
+      ) {
+        setMsgs((prev) => prev.some((x) => x.id === m.id) ? prev : [...prev, m]);
+      }
+    },
+  });
 
   const send = async (content) => {
     try { await api.post("/messages", { channel: "private", content, recipient_id: id }); load(); }

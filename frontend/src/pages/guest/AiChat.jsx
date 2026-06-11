@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { api } from "../../lib/api";
+import { api, getGuestToken } from "../../lib/api";
+import useChatSocket from "../../lib/useChatSocket";
 import { ChatView, ChatComposer } from "./PublicChat";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
@@ -9,7 +10,19 @@ export default function AiChat({ me }) {
   const [sending, setSending] = useState(false);
 
   const load = async () => { try { const { data } = await api.get("/messages/ai"); setMsgs(data); } catch {} };
-  useEffect(() => { load(); const t = setInterval(load, 2500); return () => clearInterval(t); }, []);
+  useEffect(() => { load(); const t = setInterval(load, 20000); return () => clearInterval(t); }, []);
+
+  useChatSocket({
+    token: getGuestToken(),
+    onEvent: (ev) => {
+      if (ev.type !== "message" || ev.message?.channel !== "ai") return;
+      const m = ev.message;
+      if (m.sender_id === me?.id || m.recipient_id === me?.id) {
+        setMsgs((prev) => prev.some((x) => x.id === m.id) ? prev : [...prev, m]);
+        if (m.sender_role === "ai") setSending(false);
+      }
+    },
+  });
 
   const send = async (content) => {
     setSending(true);

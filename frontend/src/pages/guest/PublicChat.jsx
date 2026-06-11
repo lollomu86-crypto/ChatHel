@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { api } from "../../lib/api";
+import { api, getGuestToken } from "../../lib/api";
+import useChatSocket from "../../lib/useChatSocket";
 import { Send, Trophy, Check } from "lucide-react";
 import { toast } from "sonner";
 
@@ -108,7 +109,18 @@ export default function PublicChat({ me }) {
   const fetchMsgs = async () => {
     try { const { data } = await api.get("/messages/public"); setMsgs(data); } catch {}
   };
-  useEffect(() => { fetchMsgs(); const id = setInterval(fetchMsgs, 3000); return () => clearInterval(id); }, []);
+  useEffect(() => { fetchMsgs(); const id = setInterval(fetchMsgs, 20000); return () => clearInterval(id); }, []);
+
+  useChatSocket({
+    token: getGuestToken(),
+    onEvent: (ev) => {
+      if (ev.type === "message" && ev.message?.channel === "public") {
+        setMsgs((prev) => prev.some((m) => m.id === ev.message.id) ? prev : [...prev, ev.message]);
+      } else if (ev.type === "message_update" && ev.message?.channel === "public") {
+        setMsgs((prev) => prev.map((m) => m.id === ev.message.id ? ev.message : m));
+      }
+    },
+  });
 
   const send = async (content) => {
     try { await api.post("/messages", { channel: "public", content }); fetchMsgs(); }
