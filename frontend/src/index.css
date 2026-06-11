@@ -35,9 +35,9 @@ h1, h2, h3, h4, h5, .font-display {
         --card-foreground: 0 0% 4%;
         --popover: 0 0% 100%;
         --popover-foreground: 0 0% 4%;
-        --primary: 0 100% 65%;
+        --primary: 228 75% 50%;
         --primary-foreground: 0 0% 100%;
-        --secondary: 228 84% 60%;
+        --secondary: 224 82% 26%;
         --secondary-foreground: 0 0% 100%;
         --muted: 220 14% 96%;
         --muted-foreground: 215 16% 35%;
@@ -47,7 +47,7 @@ h1, h2, h3, h4, h5, .font-display {
         --destructive-foreground: 0 0% 100%;
         --border: 0 0% 4%;
         --input: 0 0% 4%;
-        --ring: 228 84% 60%;
+        --ring: 228 75% 50%;
         --radius: 0.75rem;
     }
 }
@@ -63,22 +63,22 @@ h1, h2, h3, h4, h5, .font-display {
 
 /* Utility classes for our brutalist style */
 .btn-primary {
-    background: #FF4B4B; color: #fff; border: 2px solid #0A0A0A; border-radius: 9999px;
+    background: #1E40E0; color: #fff; border: 2px solid #0A0A0A; border-radius: 9999px;
     padding: 0.75rem 1.5rem; font-weight: 700;
     box-shadow: 4px 4px 0 0 rgba(10,10,10,1);
     transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s;
 }
-.btn-primary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 0 rgba(10,10,10,1); background:#FF3333; }
+.btn-primary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 0 rgba(10,10,10,1); background:#1633C7; }
 .btn-primary:active { transform: translate(2px,2px); box-shadow: 0 0 0 0 rgba(10,10,10,1); }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .btn-secondary {
-    background: #4361EE; color: #fff; border: 2px solid #0A0A0A; border-radius: 9999px;
+    background: #0B2978; color: #fff; border: 2px solid #0A0A0A; border-radius: 9999px;
     padding: 0.75rem 1.5rem; font-weight: 700;
     box-shadow: 4px 4px 0 0 rgba(10,10,10,1);
     transition: all 0.15s ease;
 }
-.btn-secondary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 0 rgba(10,10,10,1); }
+.btn-secondary:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 0 rgba(10,10,10,1); background:#081F5C; }
 
 .btn-outline {
     background: #fff; color: #0A0A0A; border: 2px solid #0A0A0A; border-radius: 9999px;
@@ -101,10 +101,10 @@ h1, h2, h3, h4, h5, .font-display {
     width: 100%;
     transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
-.input-brutal:focus { outline: none; border-color: #4361EE; box-shadow: 4px 4px 0 0 rgba(67,97,238,1); }
+.input-brutal:focus { outline: none; border-color: #1E40E0; box-shadow: 4px 4px 0 0 rgba(30,64,224,1); }
 
 .bubble-self {
-    background: #D8F3DC; border: 2px solid #0A0A0A; border-radius: 1rem; border-top-right-radius: 0;
+    background: #DCE7FF; border: 2px solid #0A0A0A; border-radius: 1rem; border-top-right-radius: 0;
     padding: 0.6rem 0.9rem; box-shadow: 2px 2px 0 0 rgba(10,10,10,1);
 }
 .bubble-other {
@@ -112,7 +112,7 @@ h1, h2, h3, h4, h5, .font-display {
     padding: 0.6rem 0.9rem; box-shadow: 2px 2px 0 0 rgba(10,10,10,1);
 }
 .bubble-reception {
-    background: #FFE5D9; border: 2px solid #0A0A0A; border-radius: 1rem; border-top-left-radius: 0;
+    background: #FFE9D6; border: 2px solid #0A0A0A; border-radius: 1rem; border-top-left-radius: 0;
     padding: 0.6rem 0.9rem; box-shadow: 2px 2px 0 0 rgba(10,10,10,1);
 }
 

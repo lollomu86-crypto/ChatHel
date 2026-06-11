@@ -3,6 +3,7 @@ import { Routes, Route, NavLink, useNavigate, Navigate } from "react-router-dom"
 import { api, clearGuestToken } from "../lib/api";
 import { MessageSquare, CalendarHeart, Users, Sparkles, Hotel, LogOut, User } from "lucide-react";
 import { toast } from "sonner";
+import Logo from "../components/Logo";
 
 import HomeFeed from "./guest/HomeFeed";
 import PublicChat from "./guest/PublicChat";
@@ -56,9 +57,7 @@ export default function GuestApp() {
       <header className="bg-cream/85 backdrop-blur-xl border-b-2 border-ink sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-brand border-2 border-ink shadow-brutal-sm flex items-center justify-center">
-              <MessageSquare size={14} className="text-white" strokeWidth={3} />
-            </div>
+            <Logo size={32}/>
             <div className="leading-tight">
               <p className="font-display font-black tracking-tight text-base">{me.hotel?.name || "ChatHel"}</p>
               <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-500">Ospite · {me.guest.nickname}</p>
@@ -75,7 +74,7 @@ export default function GuestApp() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-5 py-4 pb-24">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-5 py-4 pb-32">
         <Routes>
           <Route index element={<HomeFeed />} />
           <Route path="public" element={<PublicChat me={me.guest} />} />

@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { api, setGuestToken } from "../lib/api";
 import { toast } from "sonner";
 import { QrCode, ArrowLeft } from "lucide-react";
+import Logo from "../components/Logo";
 
 export default function GuestLogin() {
   const [code, setCode] = useState("");
@@ -30,7 +31,7 @@ export default function GuestLogin() {
       <header className="border-b-2 border-ink bg-cream/80 backdrop-blur-xl sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between">
           <Link to="/" data-testid="back-home-link" className="inline-flex items-center gap-2 text-sm font-bold hover:underline">
-            <ArrowLeft size={16}/> ChatHel
+            <ArrowLeft size={16}/> <Logo size={28} withText textClass="text-lg"/>
           </Link>
           <Link to="/admin/login" data-testid="login-admin-link" className="text-sm font-bold text-slate-700 hover:text-ink">Sono un hotel →</Link>
         </div>

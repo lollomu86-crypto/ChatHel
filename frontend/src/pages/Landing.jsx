@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { QrCode, MessageSquare, CalendarHeart, Sparkles, ArrowRight, Hotel } from "lucide-react";
+import Logo from "../components/Logo";
 
 const Feature = ({ icon: Icon, title, desc, bg }) => (
   <div className="brutal-card brutal-card-hover p-6" style={{ background: bg }} data-testid={`feature-${title.toLowerCase().replace(/\s/g,'-')}`}>
@@ -18,12 +19,7 @@ export default function Landing() {
       {/* Nav */}
       <header className="bg-cream/80 backdrop-blur-xl border-b-2 border-ink sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-lg bg-brand border-2 border-ink shadow-brutal-sm flex items-center justify-center">
-              <MessageSquare size={18} className="text-white" strokeWidth={3} />
-            </div>
-            <span className="font-display font-black text-2xl tracking-tighter">ChatHel</span>
-          </div>
+          <Logo size={38} withText textClass="text-2xl"/>
           <div className="flex items-center gap-3">
             <Link to="/admin/login" data-testid="nav-admin-link" className="hidden sm:inline-flex text-sm font-bold text-slate-700 hover:text-ink">
               Per hotel
@@ -61,7 +57,7 @@ export default function Landing() {
           <div className="relative">
             <div className="brutal-card p-5 rotate-2">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-full bg-accent2 border-2 border-ink"></div>
+                <div className="w-8 h-8 rounded-full bg-brand border-2 border-ink"></div>
                 <div>
                   <p className="font-bold text-sm">Sofia · 412</p>
                   <p className="text-xs text-slate-500">In piscina ☀️</p>
@@ -72,7 +68,7 @@ export default function Landing() {
             </div>
             <div className="brutal-card p-4 -rotate-3 mt-5 ml-8 bg-bubbleReception">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-brand border-2 border-ink"></div>
+                <div className="w-7 h-7 rounded-full bg-accent2 border-2 border-ink"></div>
                 <p className="font-bold text-sm">Concierge AI</p>
               </div>
               <p className="text-sm mt-2">La spa è prenotabile fino alle 21. Vuoi che la prenoti per te?</p>

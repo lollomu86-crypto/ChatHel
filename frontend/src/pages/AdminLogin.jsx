@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { api, setAdminToken } from "../lib/api";
 import { toast } from "sonner";
 import { Hotel, ArrowLeft } from "lucide-react";
+import Logo from "../components/Logo";
 
 export default function AdminLogin() {
   const [code, setCode] = useState("");
@@ -29,7 +30,7 @@ export default function AdminLogin() {
       <header className="border-b-2 border-ink">
         <div className="max-w-5xl mx-auto px-5 py-4">
           <Link to="/" data-testid="admin-back-home" className="inline-flex items-center gap-2 text-sm font-bold">
-            <ArrowLeft size={16}/> ChatHel
+            <ArrowLeft size={16}/> <Logo size={28} withText textClass="text-lg"/>
           </Link>
         </div>
       </header>

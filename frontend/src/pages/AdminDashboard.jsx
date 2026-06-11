@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api, clearAdminToken } from "../lib/api";
 import { toast } from "sonner";
 import { LogOut, Plus, Trash2, Users, CalendarHeart, MapPinned, MessageSquare, Send } from "lucide-react";
+import Logo from "../components/Logo";
 
 const Tab = ({ active, onClick, children, testid }) => (
   <button data-testid={testid} onClick={onClick} className={`px-4 py-2 rounded-xl font-bold text-sm border-2 border-ink transition ${active ? "bg-sun shadow-brutal-sm" : "bg-white hover:bg-slate-50"}`}>
@@ -47,9 +48,12 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-admincanvas">
       <header className="bg-white border-b-2 border-ink sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-5 py-3 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-500">Admin · ChatHel</p>
-            <h1 className="font-display font-black text-xl tracking-tight">{hotel?.name || "…"}</h1>
+          <div className="flex items-center gap-3">
+            <Logo size={38}/>
+            <div>
+              <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-500">Admin · ChatHel</p>
+              <h1 className="font-display font-black text-xl tracking-tight">{hotel?.name || "…"}</h1>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline tag-pill">Codice: {hotel?.access_code}</span>
