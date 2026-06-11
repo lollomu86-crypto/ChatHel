@@ -140,7 +140,7 @@ export default function PublicChat({ me }) {
     if (p) { setPrefill(p); sessionStorage.removeItem("chathel_prefill"); }
   }, []);
   const fetchMsgs = async () => {
-    try { const { data } = await api.get("/messages/public"); setMsgs(data); } catch {}
+    try { const { data } = await api.get("/messages/public"); setMsgs(data); } catch (e) { console.debug("[chathel] ignored", e); }
   };
   useEffect(() => { fetchMsgs(); const id = setInterval(fetchMsgs, 20000); return () => clearInterval(id); }, []);
 

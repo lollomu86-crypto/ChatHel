@@ -1,41 +1,48 @@
 # ChatHel — PRD & Status
 
-## Problem Statement (originale)
-ChatHel: piattaforma chiusa per ospiti di hotel. Accesso tramite codice/QR + nickname. Rete temporanea, sicura, riservata. Funzioni: chat reception, chat pubblica, chat privata, bacheca eventi, aree comuni con prenotazione, concierge AI, status temporanei. Dashboard hotel per gestione eventi/aree/ospiti. Linguaggio: italiano. Stile: moderno/giovane.
+## Problem Statement
+ChatHel: piattaforma chiusa per ospiti di hotel. Accesso via QR/codice + nickname. Chat (reception, pubblica, privata, AI), bacheca eventi, aree con prenotazione, dashboard hotel. Linguaggio default: italiano. Stile: moderno/giovane.
 
 ## Architecture
-- **Backend**: FastAPI + MongoDB (motor). Auth a session token (X-Guest-Token, X-Admin-Token). LLM via emergentintegrations (OpenAI GPT-5.2) usando EMERGENT_LLM_KEY.
-- **Frontend**: React + React Router + Tailwind + Shadcn + Sonner toasts. Polling 3s per chat. Stile neo-brutalist.
-- **Demo hotel** auto-seeded: code `WELCOME2026`, admin pw `admin123`. 4 aree + 3 eventi.
+- **Backend**: FastAPI + MongoDB (motor). Session-token auth (X-Guest-Token, X-Admin-Token). LLM via emergentintegrations (OpenAI GPT-5.2). WebSocket per realtime. Web Push (VAPID).
+- **Frontend**: React + Router + Tailwind + Shadcn + Sonner. i18next (10 lingue). Service worker + manifest PWA.
+- **Demo hotel auto-seeded**: code `WELCOME2026`, admin pw `admin123`. 4 aree + 3 eventi + 8 template coupon.
 
 ## User Personas
-1. **Ospite**: vuole conoscere altri ospiti, chiedere info veloci, prenotare aree, partecipare a eventi.
-2. **Hotel staff (admin)**: pubblica eventi, gestisce aree, risponde alla reception, fa check-out.
+1. **Ospite** — vuole conoscere altri ospiti, info veloci, prenotazioni, eventi, regali.
+2. **Hotel staff (admin)** — gestisce eventi, aree, ospiti, catalogo coupon, reception.
 
-## Core Requirements (statici)
-- Accesso QR/codice + nickname (no registrazione permanente).
-- Chat reception (umana), chat pubblica, chat privata 1-to-1, chat AI concierge.
-- Bacheca eventi, lista aree con prenotazione.
-- Dashboard hotel: CRUD eventi/aree, lista ospiti con check-out, thread reception.
-- Logout automatico (manuale) al check-out.
+## Core Requirements
+- Accesso QR/codice + nickname (no account permanente).
+- Chat reception, pubblica, privata 1:1, AI concierge (multilingua).
+- Bacheca eventi, aree con prenotazione.
+- Dashboard hotel CRUD + check-out ospiti + QR ospiti stampabile.
+- Realtime, multilingua, push.
 
-## Implementato (2026-02 → 2026-06)
-- [v1.0 - 2026-06-11] MVP completo con tutte le funzioni core + AI concierge + admin dashboard. Testing: 100% pass su backend e frontend.
-- [v1.1 - 2026-06-11] Rebrand visivo: logo brand integrato in tutte le pagine, palette aggiornata da rosso a blu royal (#1E40E0) + navy (#0B2978), favicon e titolo browser. Padding bottom-nav fix.
+## Implemented timeline
+- **2026-06-11 v1.0 MVP**: Core completo + AI (testing 100%).
+- **2026-06-11 v1.1**: Logo brand integrato + palette blu royal/navy.
+- **2026-06-11 v1.2**: Foto reale Sofia, testo naturale, logo H+C ritagliato.
+- **2026-06-11 v1.3**: Domanda del giorno (Step 1).
+- **2026-06-11 v1.4**: Sfide nella chat pubblica con accept/decline (Step 2).
+- **2026-06-11 v1.5**: QR scanner via fotocamera + QR ospiti in admin (Step 3).
+- **2026-06-11 v1.6**: WebSocket realtime + polling fallback 20s (Step 4).
+- **2026-06-11 v1.7**: Coupon regalo (guest + hotel) con mock payment + catalogo (Step 5).
+- **2026-06-11 v1.8**: i18n 10 lingue + auto-detect + AI multilingua + traduzione on-demand (Step 6).
+- **2026-06-11 v1.9**: Web Push (VAPID, service worker, PWA, push prompt) (Step 7).
+- **2026-06-11 v2.0**: Repo pronto al push (README, LICENSE, .env.example, .gitignore).
+- **2026-06-11 v2.0.1**: Bug fix challenge empty-note + admin select hydration warning. Test 3/3 pass.
 
-## P0/P1 Backlog (deferred)
-- **P1**: Stato temporaneo richiamabile da Public chat (badge accanto al nickname).
-- **P1**: WebSocket real-time invece di polling 3s.
-- **P1**: Notifiche push (PWA) per messaggi reception/eventi.
-- **P2**: Coupon regalo acquistabili.
-- **P2**: Domanda del giorno (rompighiaccio automatico).
-- **P2**: Chat di gruppo (es. "gruppo piscina").
-- **P2**: Sfide nella chat pubblica (ping pong, biliardo).
-- **P2**: Bundle promozionali attività locali.
-- **P2**: QR scan vero (camera) per onboarding più rapido.
-- **P2**: Multi-hotel admin (gestire più strutture da un account).
+## Backlog
+- P1: Group chats ("gruppo piscina", "gruppo barca")
+- P1: Stripe payment reale per coupon (mantenendo mock come fallback demo)
+- P2: Bundle promozionali attività locali (sconti gruppi, partner)
+- P2: Stati temporanei sincronizzati nella chat pubblica (badge accanto nickname)
+- P2: Multi-hotel per admin
+- P2: FastAPI lifespan migration (deprecazione `@app.on_event`)
 
 ## Next Tasks
-1. Real-time via WebSocket
-2. Auth Emergent Google opzionale per admin
-3. Notifiche push
+1. Group chats
+2. Stripe real payment
+3. Local-partner bundles
+4. iOS PWA install banner (Add to Home Screen)

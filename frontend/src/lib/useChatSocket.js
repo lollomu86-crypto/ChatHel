@@ -35,10 +35,10 @@ export default function useChatSocket({ token, role = "guest", onEvent }) {
         try {
           const data = JSON.parse(ev.data);
           cbRef.current && cbRef.current(data);
-        } catch {}
+        } catch (e) { console.debug("[chathel] ignored", e); }
       };
       socket.onclose = () => { if (!stopped) scheduleReconnect(); };
-      socket.onerror = () => { try { socket && socket.close(); } catch {} };
+      socket.onerror = () => { try { socket && socket.close(); } catch (e) { console.debug("[chathel] ignored", e); } };
     };
 
     const scheduleReconnect = () => {
@@ -51,7 +51,7 @@ export default function useChatSocket({ token, role = "guest", onEvent }) {
     return () => {
       stopped = true;
       if (timer) clearTimeout(timer);
-      try { socket && socket.close(); } catch {}
+      try { socket && socket.close(); } catch (e) { console.debug("[chathel] ignored", e); }
     };
   }, [token, role]);
 }

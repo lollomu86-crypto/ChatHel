@@ -983,7 +983,7 @@ async def bootstrap():
         hotel = Hotel(
             name="ChatHel Resort & Spa",
             access_code="WELCOME2026",
-            admin_password="admin123",
+            admin_password=os.environ.get("DEMO_ADMIN_PASSWORD", "admin123"),
             ai_prompt=("Sei il concierge AI del ChatHel Resort & Spa, un boutique hotel moderno sulla costa italiana. "
                        "Servizi: piscina (8-22), spa (10-21), ristorante (12-15 / 19-23), palestra 24/7, navetta aeroporto. "
                        "Wifi: ChatHelGuest / pw: welcome2026. Check-out: 11:00. Rispondi in modo conciso e amichevole."),

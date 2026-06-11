@@ -45,7 +45,7 @@ export default function GuestApp() {
   }, [navigate]);
 
   const logout = async () => {
-    try { await api.post("/guest/logout"); } catch {}
+    try { await api.post("/guest/logout"); } catch (e) { console.debug("[chathel] ignored", e); }
     clearGuestToken();
     localStorage.removeItem("chathel_guest");
     localStorage.removeItem("chathel_hotel");

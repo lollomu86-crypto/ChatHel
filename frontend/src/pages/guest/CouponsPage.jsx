@@ -139,7 +139,7 @@ export default function CouponsPage({ me }) {
     try {
       const [r, s] = await Promise.all([api.get("/coupons/received"), api.get("/coupons/sent")]);
       setReceived(r.data); setSent(s.data);
-    } catch {}
+    } catch (e) { console.debug("[chathel] ignored", e); }
   };
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, []);
 

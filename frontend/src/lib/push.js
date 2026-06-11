@@ -50,7 +50,7 @@ export async function unsubscribeFromPush() {
   const reg = await navigator.serviceWorker.getRegistration();
   const sub = reg && (await reg.pushManager.getSubscription());
   if (sub) {
-    try { await api.post("/push/unsubscribe", { subscription: sub.toJSON() }); } catch {}
+    try { await api.post("/push/unsubscribe", { subscription: sub.toJSON() }); } catch (e) { console.debug("[chathel] ignored", e); }
     await sub.unsubscribe();
   }
 }

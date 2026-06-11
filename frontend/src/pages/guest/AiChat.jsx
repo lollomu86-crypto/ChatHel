@@ -9,7 +9,7 @@ export default function AiChat({ me }) {
   const [msgs, setMsgs] = useState([]);
   const [sending, setSending] = useState(false);
 
-  const load = async () => { try { const { data } = await api.get("/messages/ai"); setMsgs(data); } catch {} };
+  const load = async () => { try { const { data } = await api.get("/messages/ai"); setMsgs(data); } catch (e) { console.debug("[chathel] ignored", e); } };
   useEffect(() => { load(); const t = setInterval(load, 20000); return () => clearInterval(t); }, []);
 
   useChatSocket({

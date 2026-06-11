@@ -10,7 +10,7 @@ export default function GuestsDirectory({ me }) {
   const [guests, setGuests] = useState([]);
   const [giftTo, setGiftTo] = useState(null);
   useEffect(() => {
-    const load = async () => { try { const { data } = await api.get("/guests"); setGuests(data); } catch {} };
+    const load = async () => { try { const { data } = await api.get("/guests"); setGuests(data); } catch (e) { console.debug("[chathel] ignored", e); } };
     load(); const id = setInterval(load, 5000); return () => clearInterval(id);
   }, []);
   const others = guests.filter((g) => g.id !== me?.id);

@@ -23,7 +23,7 @@ export default function GuestLogin() {
       const url = new URL(raw);
       const c = url.searchParams.get("code") || url.searchParams.get("hotel");
       if (c) parsed = c;
-    } catch {}
+    } catch (e) { console.debug("[chathel] ignored", e); }
     parsed = parsed.toUpperCase().slice(0, 32);
     setCode(parsed);
     toast.success(`${t("login.code")}: ${parsed}`);

@@ -127,7 +127,7 @@ export default function AdminDashboard() {
 const GuestsTab = ({ guests, reload }) => {
   const checkout = async (id) => {
     if (!window.confirm("Effettuare check-out di questo ospite?")) return;
-    try { await api.post(`/admin/guests/${id}/checkout`); toast.success("Check-out eseguito"); reload(); } catch {}
+    try { await api.post(`/admin/guests/${id}/checkout`); toast.success("Check-out eseguito"); reload(); } catch (e) { console.debug("[chathel] ignored", e); }
   };
   return (
     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">

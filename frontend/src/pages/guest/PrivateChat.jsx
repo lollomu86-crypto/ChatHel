@@ -16,7 +16,7 @@ export default function PrivateChat({ me }) {
       const [g, m] = await Promise.all([api.get("/guests"), api.get(`/messages/private/${id}`)]);
       setOther(g.data.find((x) => x.id === id) || { nickname: "Ospite" });
       setMsgs(m.data);
-    } catch {}
+    } catch (e) { console.debug("[chathel] ignored", e); }
   };
   useEffect(() => { load(); const t = setInterval(load, 20000); return () => clearInterval(t); }, [id]);
 

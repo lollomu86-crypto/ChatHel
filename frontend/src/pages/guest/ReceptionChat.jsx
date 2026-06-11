@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 export default function ReceptionChat({ me }) {
   const [msgs, setMsgs] = useState([]);
-  const load = async () => { try { const { data } = await api.get("/messages/reception"); setMsgs(data); } catch {} };
+  const load = async () => { try { const { data } = await api.get("/messages/reception"); setMsgs(data); } catch (e) { console.debug("[chathel] ignored", e); } };
   useEffect(() => { load(); const t = setInterval(load, 20000); return () => clearInterval(t); }, []);
 
   useChatSocket({
