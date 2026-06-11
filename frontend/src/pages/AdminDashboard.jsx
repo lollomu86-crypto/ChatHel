@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api, clearAdminToken, getAdminToken } from "../lib/api";
 import useChatSocket from "../lib/useChatSocket";
 import { toast } from "sonner";
-import { LogOut, Plus, Trash2, Users, CalendarHeart, MapPinned, MessageSquare, Send, QrCode } from "lucide-react";
+import { LogOut, Plus, Trash2, Users, CalendarHeart, MapPinned, MessageSquare, Send, QrCode, Gift, Check } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import Logo from "../components/Logo";
 
@@ -25,14 +25,18 @@ export default function AdminDashboard() {
   const [threadMsgs, setThreadMsgs] = useState([]);
   const [replyText, setReplyText] = useState("");
   const [showQR, setShowQR] = useState(false);
+  const [couponTpls, setCouponTpls] = useState([]);
+  const [couponHistory, setCouponHistory] = useState([]);
 
   const loadAll = async () => {
     try {
-      const [me, g, e, a, t] = await Promise.all([
+      const [me, g, e, a, t, ct, ch] = await Promise.all([
         api.get("/admin/me"), api.get("/admin/guests"), api.get("/admin/events"),
         api.get("/admin/areas"), api.get("/admin/reception/threads"),
+        api.get("/admin/coupon-templates"), api.get("/admin/coupons"),
       ]);
       setHotel(me.data.hotel); setGuests(g.data); setEvents(e.data); setAreas(a.data); setThreads(t.data);
+      setCouponTpls(ct.data); setCouponHistory(ch.data);
     } catch {
       clearAdminToken(); nav("/admin/login");
     }
@@ -82,6 +86,7 @@ export default function AdminDashboard() {
           <Tab testid="admin-tab-guests" active={tab==="guests"} onClick={()=>setTab("guests")}><Users size={14} className="inline -mt-0.5 mr-1"/> Ospiti ({guests.filter(g=>g.active).length})</Tab>
           <Tab testid="admin-tab-events" active={tab==="events"} onClick={()=>setTab("events")}><CalendarHeart size={14} className="inline -mt-0.5 mr-1"/> Eventi</Tab>
           <Tab testid="admin-tab-areas" active={tab==="areas"} onClick={()=>setTab("areas")}><MapPinned size={14} className="inline -mt-0.5 mr-1"/> Aree</Tab>
+          <Tab testid="admin-tab-coupons" active={tab==="coupons"} onClick={()=>setTab("coupons")}><Gift size={14} className="inline -mt-0.5 mr-1"/> Coupon</Tab>
           <Tab testid="admin-tab-reception" active={tab==="reception"} onClick={()=>setTab("reception")}><MessageSquare size={14} className="inline -mt-0.5 mr-1"/> Reception ({threads.length})</Tab>
         </div>
       </header>
@@ -90,6 +95,7 @@ export default function AdminDashboard() {
         {tab === "guests" && <GuestsTab guests={guests} reload={loadAll}/>}
         {tab === "events" && <EventsTab events={events} reload={loadAll}/>}
         {tab === "areas" && <AreasTab areas={areas} reload={loadAll}/>}
+        {tab === "coupons" && <CouponsAdminTab tpls={couponTpls} history={couponHistory} guests={guests} reload={loadAll}/>}
         {tab === "reception" && (
           <ReceptionTab threads={threads} active={activeThread} msgs={threadMsgs} replyText={replyText} setReplyText={setReplyText} onOpen={setActiveThread}
             onSend={async () => {
@@ -222,6 +228,115 @@ const AreasTab = ({ areas, reload }) => {
     </div>
   );
 };
+
+const fmtPriceAdmin = (cents, ccy = "EUR") => (cents / 100).toFixed(2).replace(/\.00$/, "") + " " + (ccy === "EUR" ? "€" : ccy);
+
+const CouponsAdminTab = ({ tpls, history, guests, reload }) => {
+  const [form, setForm] = useState({ name: "", description: "", emoji: "🎁", category: "drink", price_cents: 500 });
+  const [sendForm, setSendForm] = useState({ template_id: "", recipient_id: "", message: "" });
+  const [sending, setSending] = useState(false);
+
+  const createTpl = async (e) => {
+    e.preventDefault();
+    try { await api.post("/admin/coupon-templates", form); toast.success("Coupon aggiunto"); setForm({ name: "", description: "", emoji: "🎁", category: "drink", price_cents: 500 }); reload(); }
+    catch { toast.error("Errore"); }
+  };
+  const delTpl = async (id) => { if (!window.confirm("Eliminare?")) return; await api.delete(`/admin/coupon-templates/${id}`); reload(); };
+  const sendGift = async (e) => {
+    e.preventDefault();
+    if (!sendForm.template_id || !sendForm.recipient_id) return toast.error("Scegli destinatario e coupon");
+    setSending(true);
+    try { await api.post("/admin/coupons", sendForm); toast.success("Coupon regalato all'ospite 🎁"); setSendForm({ template_id: "", recipient_id: "", message: "" }); reload(); }
+    catch (err) { toast.error(err?.response?.data?.detail || "Errore"); }
+    finally { setSending(false); }
+  };
+  const redeem = async (id) => {
+    try { await api.post(`/admin/coupons/${id}/redeem`); toast.success("Coupon validato"); reload(); }
+    catch (err) { toast.error(err?.response?.data?.detail || "Errore"); }
+  };
+  const activeGuests = guests.filter((g) => g.active);
+
+  return (
+    <div className="grid lg:grid-cols-3 gap-5">
+      <div className="lg:col-span-1 space-y-5">
+        <form onSubmit={createTpl} className="brutal-card p-5 space-y-3">
+          <h3 className="font-display font-black text-xl">Nuovo coupon</h3>
+          <div className="flex gap-2">
+            <input data-testid="ct-emoji" value={form.emoji} onChange={(e)=>setForm({...form, emoji: e.target.value.slice(0,4)})} className="input-brutal w-20 text-center text-xl"/>
+            <input data-testid="ct-name" required value={form.name} onChange={(e)=>setForm({...form, name: e.target.value})} placeholder="Nome" className="input-brutal flex-1"/>
+          </div>
+          <input data-testid="ct-desc" value={form.description} onChange={(e)=>setForm({...form, description: e.target.value})} placeholder="Descrizione" className="input-brutal"/>
+          <select value={form.category} onChange={(e)=>setForm({...form, category: e.target.value})} className="input-brutal">
+            <option value="drink">Drink</option><option value="food">Food</option><option value="spa">Spa</option><option value="activity">Attività</option><option value="other">Altro</option>
+          </select>
+          <div className="flex gap-2 items-center">
+            <input data-testid="ct-price" required type="number" min="100" step="50" value={form.price_cents} onChange={(e)=>setForm({...form, price_cents: parseInt(e.target.value || 0, 10)})} className="input-brutal flex-1"/>
+            <span className="text-xs font-bold text-slate-500">cent. ({fmtPriceAdmin(form.price_cents)})</span>
+          </div>
+          <button data-testid="ct-create-btn" type="submit" className="btn-primary w-full inline-flex items-center justify-center gap-2"><Plus size={16}/> Aggiungi al catalogo</button>
+        </form>
+
+        <form onSubmit={sendGift} className="brutal-card p-5 space-y-3 bg-bubbleReception">
+          <h3 className="font-display font-black text-xl">Regala da hotel</h3>
+          <select data-testid="admin-gift-recipient" value={sendForm.recipient_id} onChange={(e)=>setSendForm({...sendForm, recipient_id: e.target.value})} className="input-brutal" required>
+            <option value="">Destinatario…</option>
+            {activeGuests.map((g) => (<option key={g.id} value={g.id}>{g.nickname}</option>))}
+          </select>
+          <select data-testid="admin-gift-template" value={sendForm.template_id} onChange={(e)=>setSendForm({...sendForm, template_id: e.target.value})} className="input-brutal" required>
+            <option value="">Coupon…</option>
+            {tpls.map((t) => (<option key={t.id} value={t.id}>{t.emoji} {t.name} · {fmtPriceAdmin(t.price_cents)}</option>))}
+          </select>
+          <textarea data-testid="admin-gift-msg" value={sendForm.message} onChange={(e)=>setSendForm({...sendForm, message: e.target.value})} placeholder="Messaggio (opzionale)" className="input-brutal min-h-[60px]"/>
+          <button data-testid="admin-gift-send" type="submit" disabled={sending} className="btn-secondary w-full inline-flex items-center justify-center gap-2"><Gift size={16}/> Invia in omaggio</button>
+        </form>
+      </div>
+
+      <div className="lg:col-span-2 space-y-5">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-2">Catalogo · {tpls.length}</p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {tpls.map((t) => (
+              <div key={t.id} className="brutal-card p-3 flex items-center gap-3">
+                <span className="text-2xl">{t.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm truncate">{t.name}</p>
+                  <p className="text-xs text-slate-600 truncate">{t.description}</p>
+                </div>
+                <p className="font-bold text-sm">{fmtPriceAdmin(t.price_cents)}</p>
+                <button data-testid={`ct-delete-${t.id}`} onClick={() => delTpl(t.id)} className="text-slate-500 hover:text-brand"><Trash2 size={14}/></button>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-2">Coupon emessi · {history.length}</p>
+          {history.length === 0 ? (
+            <div className="brutal-card p-4 text-sm text-slate-600">Nessun coupon emesso.</div>
+          ) : (
+            <div className="space-y-2">
+              {history.slice(0, 30).map((c) => (
+                <div key={c.id} className={`brutal-card p-3 flex items-center gap-3 ${c.status === "redeemed" ? "opacity-70" : ""}`}>
+                  <span className="text-xl">{c.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm truncate">{c.name}</p>
+                    <p className="text-[11px] text-slate-600 truncate">{c.sender_type === "hotel" ? "Omaggio hotel" : c.sender_nickname} → {c.recipient_nickname} · <span className="font-mono">{c.code}</span></p>
+                  </div>
+                  <p className="text-sm font-bold whitespace-nowrap">{fmtPriceAdmin(c.price_cents)}</p>
+                  {c.status === "pending" ? (
+                    <button data-testid={`admin-redeem-${c.id}`} onClick={() => redeem(c.id)} className="btn-outline !py-1 !px-2 text-xs inline-flex items-center gap-1"><Check size={12}/> Valida</button>
+                  ) : (
+                    <span className="text-[11px] font-bold text-slate-500 inline-flex items-center gap-1"><Check size={12}/> Usato</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const ReceptionTab = ({ threads, active, msgs, replyText, setReplyText, onOpen, onSend }) => (
   <div className="grid lg:grid-cols-3 gap-5 h-[70vh]">

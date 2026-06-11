@@ -99,6 +99,40 @@ class Message(BaseModel):
     created_at: str = Field(default_factory=now_iso)
 
 
+class CouponTemplate(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    hotel_id: str
+    name: str
+    description: str = ""
+    emoji: str = "🎁"
+    category: Literal["drink", "food", "spa", "activity", "other"] = "drink"
+    price_cents: int
+    currency: str = "EUR"
+    is_seeded: bool = False
+
+
+class Coupon(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    code: str = Field(default_factory=lambda: str(uuid.uuid4()).replace("-", "")[:8].upper())
+    hotel_id: str
+    template_id: Optional[str] = None
+    name: str
+    description: str = ""
+    emoji: str = "🎁"
+    category: str = "drink"
+    price_cents: int
+    currency: str = "EUR"
+    sender_id: str
+    sender_nickname: str
+    sender_type: Literal["guest", "hotel"] = "guest"
+    recipient_id: str
+    recipient_nickname: str
+    message: str = ""
+    status: Literal["pending", "redeemed", "expired"] = "pending"
+    created_at: str = Field(default_factory=now_iso)
+    redeemed_at: Optional[str] = None
+
+
 # ===== Request models =====
 class GuestLoginReq(BaseModel):
     access_code: str
@@ -140,6 +174,27 @@ class AreaCreateReq(BaseModel):
 
 class AreaBookingReq(BaseModel):
     slot: str
+
+
+class CouponTemplateReq(BaseModel):
+    name: str
+    description: str = ""
+    emoji: str = "🎁"
+    category: Literal["drink", "food", "spa", "activity", "other"] = "drink"
+    price_cents: int
+    currency: str = "EUR"
+
+
+class CouponSendReq(BaseModel):
+    template_id: str
+    recipient_id: str
+    message: str = ""
+
+
+class AdminCouponSendReq(BaseModel):
+    template_id: str
+    recipient_id: str
+    message: str = ""
 
 
 # ===== Auth deps =====
@@ -232,6 +287,18 @@ class ConnectionManager:
         payload = {"type": "message_update", "message": msg}
         await self.send_to_hotel_guests(hotel_id, payload)
         await self.send_to_admins(hotel_id, payload)
+
+    async def broadcast_coupon(self, coupon: dict, event: str = "coupon_received"):
+        hotel_id = coupon["hotel_id"]
+        payload = {"type": event, "coupon": coupon}
+        await self.send_to_guest(coupon["recipient_id"], payload)
+        if coupon["sender_type"] == "guest":
+            await self.send_to_guest(coupon["sender_id"], payload)
+        await self.send_to_admins(hotel_id, payload)
+
+    async def broadcast_event_published(self, hotel_id: str, event: dict):
+        payload = {"type": "event_published", "event": event}
+        await self.send_to_hotel_guests(hotel_id, payload)
 
 
 manager = ConnectionManager()
@@ -518,6 +585,7 @@ async def admin_list_events(hotel: Hotel = Depends(get_current_admin)):
 async def admin_create_event(req: EventCreateReq, hotel: Hotel = Depends(get_current_admin)):
     ev = Event(hotel_id=hotel.id, **req.model_dump())
     await db.events.insert_one(ev.model_dump())
+    await manager.broadcast_event_published(hotel.id, ev.model_dump())
     return ev.model_dump()
 
 
@@ -602,7 +670,121 @@ async def admin_reception_send(guest_id: str, req: MessageCreateReq, hotel: Hote
     return msg.model_dump()
 
 
-# --- Bootstrap demo hotel on startup ---
+# --- Coupon templates & coupons (guest-facing) ---
+@api_router.get("/coupon-templates")
+async def list_coupon_templates(guest: Guest = Depends(get_current_guest)):
+    docs = await db.coupon_templates.find({"hotel_id": guest.hotel_id}, {"_id": 0}).sort("price_cents", 1).to_list(200)
+    return docs
+
+
+@api_router.post("/coupons")
+async def send_coupon(req: CouponSendReq, guest: Guest = Depends(get_current_guest)):
+    tpl = await db.coupon_templates.find_one({"id": req.template_id, "hotel_id": guest.hotel_id}, {"_id": 0})
+    if not tpl:
+        raise HTTPException(404, "Coupon non disponibile")
+    rec = await db.guests.find_one({"id": req.recipient_id, "hotel_id": guest.hotel_id, "active": True}, {"_id": 0})
+    if not rec:
+        raise HTTPException(404, "Destinatario non trovato")
+    if rec["id"] == guest.id:
+        raise HTTPException(400, "Non puoi regalare un coupon a te stesso")
+    coupon = Coupon(
+        hotel_id=guest.hotel_id, template_id=tpl["id"],
+        name=tpl["name"], description=tpl.get("description", ""), emoji=tpl.get("emoji", "🎁"),
+        category=tpl.get("category", "drink"), price_cents=tpl["price_cents"], currency=tpl.get("currency", "EUR"),
+        sender_id=guest.id, sender_nickname=guest.nickname, sender_type="guest",
+        recipient_id=rec["id"], recipient_nickname=rec["nickname"],
+        message=req.message[:200],
+    )
+    await db.coupons.insert_one(coupon.model_dump())
+    await manager.broadcast_coupon(coupon.model_dump())
+    return coupon.model_dump()
+
+
+@api_router.get("/coupons/received")
+async def coupons_received(guest: Guest = Depends(get_current_guest)):
+    docs = await db.coupons.find({"hotel_id": guest.hotel_id, "recipient_id": guest.id}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return docs
+
+
+@api_router.get("/coupons/sent")
+async def coupons_sent(guest: Guest = Depends(get_current_guest)):
+    docs = await db.coupons.find({"hotel_id": guest.hotel_id, "sender_id": guest.id}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return docs
+
+
+@api_router.post("/coupons/{coupon_id}/redeem")
+async def redeem_coupon(coupon_id: str, guest: Guest = Depends(get_current_guest)):
+    c = await db.coupons.find_one({"id": coupon_id, "hotel_id": guest.hotel_id, "recipient_id": guest.id}, {"_id": 0})
+    if not c:
+        raise HTTPException(404, "Coupon non trovato")
+    if c["status"] != "pending":
+        raise HTTPException(409, "Coupon già usato")
+    await db.coupons.update_one({"id": coupon_id}, {"$set": {"status": "redeemed", "redeemed_at": now_iso()}})
+    updated = await db.coupons.find_one({"id": coupon_id}, {"_id": 0})
+    await manager.broadcast_coupon(updated, event="coupon_updated")
+    return updated
+
+
+# --- Admin coupon templates & coupons ---
+@api_router.get("/admin/coupon-templates")
+async def admin_list_templates(hotel: Hotel = Depends(get_current_admin)):
+    docs = await db.coupon_templates.find({"hotel_id": hotel.id}, {"_id": 0}).sort("price_cents", 1).to_list(200)
+    return docs
+
+
+@api_router.post("/admin/coupon-templates")
+async def admin_create_template(req: CouponTemplateReq, hotel: Hotel = Depends(get_current_admin)):
+    tpl = CouponTemplate(hotel_id=hotel.id, **req.model_dump())
+    await db.coupon_templates.insert_one(tpl.model_dump())
+    return tpl.model_dump()
+
+
+@api_router.delete("/admin/coupon-templates/{template_id}")
+async def admin_delete_template(template_id: str, hotel: Hotel = Depends(get_current_admin)):
+    await db.coupon_templates.delete_one({"id": template_id, "hotel_id": hotel.id})
+    return {"ok": True}
+
+
+@api_router.post("/admin/coupons")
+async def admin_send_coupon(req: AdminCouponSendReq, hotel: Hotel = Depends(get_current_admin)):
+    tpl = await db.coupon_templates.find_one({"id": req.template_id, "hotel_id": hotel.id}, {"_id": 0})
+    if not tpl:
+        raise HTTPException(404, "Coupon non disponibile")
+    rec = await db.guests.find_one({"id": req.recipient_id, "hotel_id": hotel.id, "active": True}, {"_id": 0})
+    if not rec:
+        raise HTTPException(404, "Destinatario non trovato")
+    coupon = Coupon(
+        hotel_id=hotel.id, template_id=tpl["id"],
+        name=tpl["name"], description=tpl.get("description", ""), emoji=tpl.get("emoji", "🎁"),
+        category=tpl.get("category", "drink"), price_cents=tpl["price_cents"], currency=tpl.get("currency", "EUR"),
+        sender_id="hotel", sender_nickname=hotel.name, sender_type="hotel",
+        recipient_id=rec["id"], recipient_nickname=rec["nickname"],
+        message=req.message[:200],
+    )
+    await db.coupons.insert_one(coupon.model_dump())
+    await manager.broadcast_coupon(coupon.model_dump())
+    return coupon.model_dump()
+
+
+@api_router.get("/admin/coupons")
+async def admin_list_coupons(hotel: Hotel = Depends(get_current_admin)):
+    docs = await db.coupons.find({"hotel_id": hotel.id}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return docs
+
+
+@api_router.post("/admin/coupons/{coupon_id}/redeem")
+async def admin_redeem_coupon(coupon_id: str, hotel: Hotel = Depends(get_current_admin)):
+    c = await db.coupons.find_one({"id": coupon_id, "hotel_id": hotel.id}, {"_id": 0})
+    if not c:
+        raise HTTPException(404, "Coupon non trovato")
+    if c["status"] != "pending":
+        raise HTTPException(409, "Coupon già usato")
+    await db.coupons.update_one({"id": coupon_id}, {"$set": {"status": "redeemed", "redeemed_at": now_iso()}})
+    updated = await db.coupons.find_one({"id": coupon_id}, {"_id": 0})
+    await manager.broadcast_coupon(updated, event="coupon_updated")
+    return updated
+
+
 @app.on_event("startup")
 async def bootstrap():
     existing = await db.hotels.find_one({"access_code": "WELCOME2026"})
@@ -616,38 +798,53 @@ async def bootstrap():
                        "Wifi: ChatHelGuest / pw: welcome2026. Check-out: 11:00. Rispondi in modo conciso e amichevole."),
         )
         await db.hotels.insert_one(hotel.model_dump())
-        # Seed areas
-        areas = [
-            Area(hotel_id=hotel.id, name="Piscina Sky", description="Piscina panoramica al rooftop con bar.",
-                 hours="08:00 - 22:00",
+        hotel_id = hotel.id
+    else:
+        hotel_id = existing["id"]
+
+    # Seed areas if none
+    if await db.areas.count_documents({"hotel_id": hotel_id}) == 0:
+        for a in [
+            Area(hotel_id=hotel_id, name="Piscina Sky", description="Piscina panoramica al rooftop con bar.", hours="08:00 - 22:00",
                  image_url="https://images.unsplash.com/photo-1488345979593-09db0f85545f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBsdXh1cnklMjBzcGElMjBob3RlbHxlbnwwfHx8fDE3ODExOTc3NzZ8MA&ixlib=rb-4.1.0&q=85"),
-            Area(hotel_id=hotel.id, name="Lounge & Bar", description="Cocktail bar con musica live nel weekend.",
-                 hours="17:00 - 02:00",
+            Area(hotel_id=hotel_id, name="Lounge & Bar", description="Cocktail bar con musica live nel weekend.", hours="17:00 - 02:00",
                  image_url="https://images.unsplash.com/photo-1660557989725-f511e9fa6267?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzF8MHwxfHNlYXJjaHwxfHxib3V0aXF1ZSUyMGhvdGVsJTIwbG91bmdlJTIwdmlicmFudHxlbnwwfHx8fDE3ODExOTc3NzV8MA&ixlib=rb-4.1.0&q=85"),
-            Area(hotel_id=hotel.id, name="Spa Zen", description="Sauna, hammam, idromassaggio. Su prenotazione.",
-                 hours="10:00 - 21:00",
+            Area(hotel_id=hotel_id, name="Spa Zen", description="Sauna, hammam, idromassaggio. Su prenotazione.", hours="10:00 - 21:00",
                  image_url="https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800"),
-            Area(hotel_id=hotel.id, name="Sala Giochi", description="Ping pong, biliardo, console. Lancia una sfida!",
-                 hours="09:00 - 23:00",
+            Area(hotel_id=hotel_id, name="Sala Giochi", description="Ping pong, biliardo, console. Lancia una sfida!", hours="09:00 - 23:00",
                  image_url="https://images.unsplash.com/photo-1511193311914-0346f16efe90?w=800"),
-        ]
-        for a in areas:
+        ]:
             await db.areas.insert_one(a.model_dump())
-        # Seed events
-        events = [
-            Event(hotel_id=hotel.id, title="Aperitivo in piscina", description="DJ set e drink al tramonto al rooftop.",
+
+    # Seed events if none
+    if await db.events.count_documents({"hotel_id": hotel_id}) == 0:
+        for e in [
+            Event(hotel_id=hotel_id, title="Aperitivo in piscina", description="DJ set e drink al tramonto al rooftop.",
                   event_time="Oggi 19:00", location="Piscina Sky",
                   image_url="https://images.unsplash.com/photo-1718096551429-8cafaba752db?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHwxfHxwb29sJTIwcGFydHklMjBldmVudHxlbnwwfHx8fDE3ODExOTc3NzZ8MA&ixlib=rb-4.1.0&q=85"),
-            Event(hotel_id=hotel.id, title="Escursione in barca", description="Mezza giornata, tour delle calette. Sconto gruppi 6+.",
+            Event(hotel_id=hotel_id, title="Escursione in barca", description="Mezza giornata, tour delle calette. Sconto gruppi 6+.",
                   event_time="Domani 09:30", location="Reception",
                   image_url="https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=800"),
-            Event(hotel_id=hotel.id, title="Cena degustazione", description="5 portate, chef ospite. Prenotazione obbligatoria.",
+            Event(hotel_id=hotel_id, title="Cena degustazione", description="5 portate, chef ospite. Prenotazione obbligatoria.",
                   event_time="Sab 20:30", location="Ristorante",
                   image_url="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800"),
-        ]
-        for e in events:
+        ]:
             await db.events.insert_one(e.model_dump())
-        logger.info("Seeded demo hotel: WELCOME2026 / admin123")
+
+    # Seed coupon templates if none
+    if await db.coupon_templates.count_documents({"hotel_id": hotel_id}) == 0:
+        for t in [
+            CouponTemplate(hotel_id=hotel_id, name="Caffè espresso", description="Un caffè al bar dell'hotel.", emoji="☕", category="drink", price_cents=300, is_seeded=True),
+            CouponTemplate(hotel_id=hotel_id, name="Spritz", description="Spritz Aperol al lounge.", emoji="🍹", category="drink", price_cents=800, is_seeded=True),
+            CouponTemplate(hotel_id=hotel_id, name="Calice di vino", description="Vino della casa, bianco o rosso.", emoji="🍷", category="drink", price_cents=700, is_seeded=True),
+            CouponTemplate(hotel_id=hotel_id, name="Cocktail signature", description="Cocktail della casa.", emoji="🍸", category="drink", price_cents=1200, is_seeded=True),
+            CouponTemplate(hotel_id=hotel_id, name="Aperitivo per 2", description="Tagliere + 2 cocktail al tramonto.", emoji="🥂", category="food", price_cents=2500, is_seeded=True),
+            CouponTemplate(hotel_id=hotel_id, name="Cena 3 portate", description="Antipasto, primo e dolce al ristorante.", emoji="🍽️", category="food", price_cents=4500, is_seeded=True),
+            CouponTemplate(hotel_id=hotel_id, name="Massaggio relax 30'", description="Spa Zen — trattamento rilassante.", emoji="💆", category="spa", price_cents=4000, is_seeded=True),
+            CouponTemplate(hotel_id=hotel_id, name="Day spa completa", description="Sauna + hammam + massaggio 50'.", emoji="🧖", category="spa", price_cents=9000, is_seeded=True),
+        ]:
+            await db.coupon_templates.insert_one(t.model_dump())
+    logger.info("Bootstrap complete: hotel %s", hotel_id)
 
 
 app.include_router(api_router)

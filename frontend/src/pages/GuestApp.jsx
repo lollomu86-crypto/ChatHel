@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Routes, Route, NavLink, useNavigate, Navigate } from "react-router-dom";
 import { api, clearGuestToken } from "../lib/api";
-import { MessageSquare, CalendarHeart, Users, Sparkles, Hotel, LogOut, User } from "lucide-react";
+import { MessageSquare, CalendarHeart, Users, Sparkles, Hotel, LogOut, User, Gift } from "lucide-react";
 import { toast } from "sonner";
 import Logo from "../components/Logo";
 
@@ -12,6 +12,7 @@ import PrivateChat from "./guest/PrivateChat";
 import ReceptionChat from "./guest/ReceptionChat";
 import AiChat from "./guest/AiChat";
 import ProfilePanel from "./guest/ProfilePanel";
+import CouponsPage from "./guest/CouponsPage";
 
 const TABS = [
   { to: "/app", label: "Home", icon: Hotel, end: true, testid: "tab-home" },
@@ -64,6 +65,9 @@ export default function GuestApp() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <NavLink to="/app/coupons" data-testid="coupons-link" className="w-9 h-9 rounded-full border-2 border-ink bg-bubbleReception shadow-brutal-sm flex items-center justify-center hover:bg-sun transition">
+              <Gift size={16} strokeWidth={2.5}/>
+            </NavLink>
             <NavLink to="/app/profile" data-testid="profile-link" className="w-9 h-9 rounded-full border-2 border-ink bg-sun shadow-brutal-sm flex items-center justify-center">
               <User size={16} strokeWidth={2.5}/>
             </NavLink>
@@ -83,6 +87,7 @@ export default function GuestApp() {
           <Route path="reception" element={<ReceptionChat me={me.guest} />} />
           <Route path="ai" element={<AiChat me={me.guest} />} />
           <Route path="profile" element={<ProfilePanel me={me.guest} onUpdated={(g)=>setMe({...me, guest:g})} />} />
+          <Route path="coupons" element={<CouponsPage me={me.guest} />} />
         </Routes>
       </main>
 
