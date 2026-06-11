@@ -1,12 +1,15 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api, setGuestToken } from "../lib/api";
 import { toast } from "sonner";
 import { QrCode, ArrowLeft, Camera } from "lucide-react";
 import Logo from "../components/Logo";
 import QRScanner from "../components/QRScanner";
+import LanguageSwitcher from "../components/LanguageSwitcher";
 
 export default function GuestLogin() {
+  const { t } = useTranslation();
   const [code, setCode] = useState("");
   const [nickname, setNickname] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,7 +18,6 @@ export default function GuestLogin() {
 
   const handleScanResult = (raw) => {
     setShowScanner(false);
-    // Extract code: support raw codes (WELCOME2026) or URL with ?code=XXX
     let parsed = raw.trim();
     try {
       const url = new URL(raw);
@@ -24,7 +26,7 @@ export default function GuestLogin() {
     } catch {}
     parsed = parsed.toUpperCase().slice(0, 32);
     setCode(parsed);
-    toast.success(`Codice rilevato: ${parsed}`);
+    toast.success(`${t("login.code")}: ${parsed}`);
   };
 
   const submit = async (e) => {
@@ -49,7 +51,10 @@ export default function GuestLogin() {
           <Link to="/" data-testid="back-home-link" className="inline-flex items-center gap-2 text-sm font-bold hover:underline">
             <ArrowLeft size={16}/> <Logo size={36} withText textClass="text-xl"/>
           </Link>
-          <Link to="/admin/login" data-testid="login-admin-link" className="text-sm font-bold text-slate-700 hover:text-ink">Sono un hotel →</Link>
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher compact />
+            <Link to="/admin/login" data-testid="login-admin-link" className="text-sm font-bold text-slate-700 hover:text-ink">{t("landing.cta_hotel")} →</Link>
+          </div>
         </div>
       </header>
 
@@ -59,8 +64,8 @@ export default function GuestLogin() {
             <div className="w-14 h-14 rounded-xl bg-sun border-2 border-ink shadow-brutal-sm flex items-center justify-center mb-5">
               <QrCode size={28} strokeWidth={2.5}/>
             </div>
-            <h1 className="font-display text-4xl font-black tracking-tighter mb-2">Entra in hotel.</h1>
-            <p className="text-slate-700 mb-5">Codice fornito dalla reception + un nickname per gli altri ospiti.</p>
+            <h1 className="font-display text-4xl font-black tracking-tighter mb-2">{t("login.title")}</h1>
+            <p className="text-slate-700 mb-5">{t("login.subtitle")}</p>
 
             <button
               type="button"
@@ -68,33 +73,33 @@ export default function GuestLogin() {
               onClick={() => setShowScanner(true)}
               className="btn-outline w-full inline-flex items-center justify-center gap-2 mb-5"
             >
-              <Camera size={18}/> Scansiona QR code
+              <Camera size={18}/> {t("login.scan_qr")}
             </button>
 
             <div className="relative my-5">
               <div className="absolute inset-0 flex items-center"><span className="w-full border-t-2 border-dashed border-slate-300"/></div>
-              <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-[0.2em]"><span className="bg-white px-3 text-slate-500">oppure inserisci manualmente</span></div>
+              <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-[0.2em]"><span className="bg-white px-3 text-slate-500">{t("login.or_manual")}</span></div>
             </div>
 
             <form onSubmit={submit} className="space-y-4">
               <div>
-                <label className="text-xs font-bold uppercase tracking-[0.2em] text-slate-600 mb-1.5 block">Codice hotel</label>
+                <label className="text-xs font-bold uppercase tracking-[0.2em] text-slate-600 mb-1.5 block">{t("login.code")}</label>
                 <input
                   data-testid="login-code-input"
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  placeholder="es. WELCOME2026"
+                  placeholder="WELCOME2026"
                   className="input-brutal font-mono tracking-widest uppercase"
                   required
                 />
               </div>
               <div>
-                <label className="text-xs font-bold uppercase tracking-[0.2em] text-slate-600 mb-1.5 block">Nickname</label>
+                <label className="text-xs font-bold uppercase tracking-[0.2em] text-slate-600 mb-1.5 block">{t("login.nickname")}</label>
                 <input
                   data-testid="login-nickname-input"
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
-                  placeholder="es. Luca · 412"
+                  placeholder="Luca · 412"
                   className="input-brutal"
                   required
                   minLength={2}
@@ -107,12 +112,12 @@ export default function GuestLogin() {
                 className="btn-primary w-full"
                 type="submit"
               >
-                {loading ? "Accesso in corso…" : "Entra"}
+                {loading ? t("login.submitting") : t("login.submit")}
               </button>
             </form>
 
             <p className="text-xs text-slate-500 mt-5">
-              Provando? Usa codice <span className="font-mono bg-sun border border-ink px-1.5">WELCOME2026</span>.
+              {t("login.demo_hint")} <span className="font-mono bg-sun border border-ink px-1.5">WELCOME2026</span>.
             </p>
           </div>
         </div>

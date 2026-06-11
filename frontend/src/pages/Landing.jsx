@@ -1,7 +1,9 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { QrCode, MessageSquare, CalendarHeart, Sparkles, ArrowRight, Hotel } from "lucide-react";
 import Logo from "../components/Logo";
+import LanguageSwitcher from "../components/LanguageSwitcher";
 
 const Feature = ({ icon: Icon, title, desc, bg }) => (
   <div className="brutal-card brutal-card-hover p-6" style={{ background: bg }} data-testid={`feature-${title.toLowerCase().replace(/\s/g,'-')}`}>
@@ -14,6 +16,7 @@ const Feature = ({ icon: Icon, title, desc, bg }) => (
 );
 
 export default function Landing() {
+  const { t } = useTranslation();
   return (
     <div className="min-h-screen">
       {/* Nav */}
@@ -21,10 +24,11 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
           <Logo size={56} withText textClass="text-3xl"/>
           <div className="flex items-center gap-3">
+            <LanguageSwitcher compact />
             <Link to="/admin/login" data-testid="nav-admin-link" className="hidden sm:inline-flex text-sm font-bold text-slate-700 hover:text-ink">
-              Per hotel
+              {t("landing.cta_hotel")}
             </Link>
-            <Link to="/login" data-testid="nav-login-link" className="btn-primary text-sm">Entra</Link>
+            <Link to="/login" data-testid="nav-login-link" className="btn-primary text-sm">{t("common.enter")}</Link>
           </div>
         </div>
       </header>
@@ -32,25 +36,25 @@ export default function Landing() {
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-5 pt-12 sm:pt-20 pb-14 grid lg:grid-cols-12 gap-10 items-center">
         <div className="lg:col-span-7">
-          <span className="tag-pill mb-5"><Sparkles size={14}/> Solo per ospiti dell'hotel</span>
+          <span className="tag-pill mb-5"><Sparkles size={14}/> {t("landing.tag_only_guests")}</span>
           <h1 className="font-display font-black text-5xl sm:text-6xl lg:text-7xl leading-[0.95] tracking-tighter mb-6">
-            La tua stanza<br/>
-            <span className="bg-sun border-2 border-ink px-3 inline-block -rotate-1 shadow-brutal-sm">virtuale</span><br/>
-            in hotel.
+            {t("landing.headline_a")}<br/>
+            <span className="bg-sun border-2 border-ink px-3 inline-block -rotate-1 shadow-brutal-sm">{t("landing.headline_b")}</span><br/>
+            {t("landing.headline_c")}
           </h1>
           <p className="text-lg text-slate-700 max-w-xl mb-8 leading-relaxed">
-            Chat privata fra ospiti, eventi dell'hotel, prenotazioni di aree comuni e un concierge AI. Tutto in un'unica app, accessibile solo con il codice del tuo hotel.
+            {t("landing.subtitle")}
           </p>
           <div className="flex flex-wrap gap-4">
             <Link to="/login" data-testid="hero-cta-login" className="btn-primary inline-flex items-center gap-2">
-              Entra con codice <ArrowRight size={18}/>
+              {t("landing.cta_enter")} <ArrowRight size={18}/>
             </Link>
             <Link to="/admin/login" data-testid="hero-cta-admin" className="btn-outline inline-flex items-center gap-2">
-              <Hotel size={18}/> Sono un hotel
+              <Hotel size={18}/> {t("landing.cta_hotel")}
             </Link>
           </div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-600 mt-8">
-            Demo: codice <span className="bg-sun border border-ink px-1.5">WELCOME2026</span>
+            {t("landing.demo_hint")} <span className="bg-sun border border-ink px-1.5">WELCOME2026</span>
           </p>
         </div>
         <div className="lg:col-span-5">
@@ -89,32 +93,32 @@ export default function Landing() {
       {/* Features */}
       <section className="bg-ink py-16">
         <div className="max-w-6xl mx-auto px-5">
-          <h2 className="font-display text-4xl sm:text-5xl font-black text-white tracking-tight mb-3">Pensata per ospiti e hotel.</h2>
-          <p className="text-slate-300 mb-10 max-w-2xl">Una rete chiusa, sicura e temporanea — solo per chi sta soggiornando.</p>
+          <h2 className="font-display text-4xl sm:text-5xl font-black text-white tracking-tight mb-3">{t("landing.features_title")}</h2>
+          <p className="text-slate-300 mb-10 max-w-2xl">{t("landing.features_sub")}</p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Feature icon={QrCode} title="Accesso QR" desc="Entri solo se sei un ospite registrato. Logout automatico al check-out." bg="#FFFDF7"/>
-            <Feature icon={MessageSquare} title="Chat tra ospiti" desc="Pubblica per organizzare attività, privata per fare conoscenza." bg="#D8F3DC"/>
-            <Feature icon={Sparkles} title="Concierge AI 24/7" desc="Domande sull'hotel? Risposte istantanee, personalizzate dall'hotel." bg="#FFE5D9"/>
-            <Feature icon={CalendarHeart} title="Bacheca eventi" desc="Aperitivi, escursioni, cene tematiche. Sempre aggiornati." bg="#F9DC5C"/>
-            <Feature icon={Hotel} title="Aree comuni" desc="Prenoti spa, palestra, sala giochi direttamente dall'app." bg="#FFFDF7"/>
-            <Feature icon={MessageSquare} title="Reception diretta" desc="Scrivi alla reception senza chiamare. Risposte rapide." bg="#fff"/>
+            <Feature icon={QrCode} title={t("landing.f_qr_t")} desc={t("landing.f_qr_d")} bg="#FFFDF7"/>
+            <Feature icon={MessageSquare} title={t("landing.f_chat_t")} desc={t("landing.f_chat_d")} bg="#DCE7FF"/>
+            <Feature icon={Sparkles} title={t("landing.f_ai_t")} desc={t("landing.f_ai_d")} bg="#FFE9D6"/>
+            <Feature icon={CalendarHeart} title={t("landing.f_events_t")} desc={t("landing.f_events_d")} bg="#F9DC5C"/>
+            <Feature icon={Hotel} title={t("landing.f_areas_t")} desc={t("landing.f_areas_d")} bg="#FFFDF7"/>
+            <Feature icon={MessageSquare} title={t("landing.f_reception_t")} desc={t("landing.f_reception_d")} bg="#fff"/>
           </div>
         </div>
       </section>
 
       {/* CTA */}
       <section className="max-w-4xl mx-auto px-5 py-20 text-center">
-        <h2 className="font-display text-4xl sm:text-5xl font-black tracking-tighter mb-5">Pronto a scoprire chi alloggia con te?</h2>
-        <p className="text-slate-700 mb-8">Inserisci il codice ricevuto dall'hotel e crea il tuo nickname.</p>
+        <h2 className="font-display text-4xl sm:text-5xl font-black tracking-tighter mb-5">{t("landing.cta_final")}</h2>
+        <p className="text-slate-700 mb-8">{t("landing.cta_final_sub")}</p>
         <Link to="/login" data-testid="footer-cta-login" className="btn-primary inline-flex items-center gap-2">
-          Inizia ora <ArrowRight size={18}/>
+          {t("landing.cta_final_btn")} <ArrowRight size={18}/>
         </Link>
       </section>
 
       <footer className="border-t-2 border-ink py-6">
         <div className="max-w-6xl mx-auto px-5 text-sm text-slate-600 flex flex-wrap justify-between gap-2">
-          <span>© 2026 ChatHel — La rete chiusa per ospiti.</span>
-          <span>Costruito per hotel moderni.</span>
+          <span>{t("landing.footer_left")}</span>
+          <span>{t("landing.footer_right")}</span>
         </div>
       </footer>
     </div>

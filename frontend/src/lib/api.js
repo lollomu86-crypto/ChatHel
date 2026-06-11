@@ -8,8 +8,10 @@ export const api = axios.create({ baseURL: API });
 api.interceptors.request.use((cfg) => {
   const gt = localStorage.getItem("chathel_guest_token");
   const at = localStorage.getItem("chathel_admin_token");
+  const lng = localStorage.getItem("chathel_lng");
   if (gt) cfg.headers["X-Guest-Token"] = gt;
   if (at) cfg.headers["X-Admin-Token"] = at;
+  if (lng) cfg.headers["X-User-Lang"] = lng;
   return cfg;
 });
 

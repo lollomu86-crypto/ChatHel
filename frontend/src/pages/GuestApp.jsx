@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Routes, Route, NavLink, useNavigate, Navigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api, clearGuestToken } from "../lib/api";
 import { MessageSquare, CalendarHeart, Users, Sparkles, Hotel, LogOut, User, Gift } from "lucide-react";
 import { toast } from "sonner";
 import Logo from "../components/Logo";
+import LanguageSwitcher from "../components/LanguageSwitcher";
 
 import HomeFeed from "./guest/HomeFeed";
 import PublicChat from "./guest/PublicChat";
@@ -14,15 +16,16 @@ import AiChat from "./guest/AiChat";
 import ProfilePanel from "./guest/ProfilePanel";
 import CouponsPage from "./guest/CouponsPage";
 
-const TABS = [
-  { to: "/app", label: "Home", icon: Hotel, end: true, testid: "tab-home" },
-  { to: "/app/public", label: "Public", icon: MessageSquare, testid: "tab-public" },
-  { to: "/app/guests", label: "Ospiti", icon: Users, testid: "tab-guests" },
-  { to: "/app/reception", label: "Reception", icon: CalendarHeart, testid: "tab-reception" },
-  { to: "/app/ai", label: "AI", icon: Sparkles, testid: "tab-ai" },
+const TABS_DEF = [
+  { to: "/app", labelKey: "tabs.home", icon: Hotel, end: true, testid: "tab-home" },
+  { to: "/app/public", labelKey: "tabs.public", icon: MessageSquare, testid: "tab-public" },
+  { to: "/app/guests", labelKey: "tabs.guests", icon: Users, testid: "tab-guests" },
+  { to: "/app/reception", labelKey: "tabs.reception", icon: CalendarHeart, testid: "tab-reception" },
+  { to: "/app/ai", labelKey: "tabs.ai", icon: Sparkles, testid: "tab-ai" },
 ];
 
 export default function GuestApp() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -45,11 +48,11 @@ export default function GuestApp() {
     clearGuestToken();
     localStorage.removeItem("chathel_guest");
     localStorage.removeItem("chathel_hotel");
-    toast.success("Check-out effettuato");
+    toast.success(t("common.logout"));
     navigate("/", { replace: true });
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-slate-600">Caricamento…</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-slate-600">{t("common.loading")}</div>;
   if (!me) return <Navigate to="/login" replace />;
 
   return (
@@ -61,10 +64,11 @@ export default function GuestApp() {
             <Logo size={40}/>
             <div className="leading-tight">
               <p className="font-display font-black tracking-tight text-base">{me.hotel?.name || "ChatHel"}</p>
-              <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-500">Ospite · {me.guest.nickname}</p>
+              <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-500">{t("header.guest_prefix")} · {me.guest.nickname}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <LanguageSwitcher compact />
             <NavLink to="/app/coupons" data-testid="coupons-link" className="w-9 h-9 rounded-full border-2 border-ink bg-bubbleReception shadow-brutal-sm flex items-center justify-center hover:bg-sun transition">
               <Gift size={16} strokeWidth={2.5}/>
             </NavLink>
@@ -94,20 +98,20 @@ export default function GuestApp() {
       {/* Bottom tabs */}
       <nav className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40">
         <div className="flex gap-1 p-1 bg-white border-2 border-ink rounded-2xl shadow-brutal">
-          {TABS.map((t) => (
+          {TABS_DEF.map((tb) => (
             <NavLink
-              key={t.to}
-              to={t.to}
-              end={t.end}
-              data-testid={t.testid}
+              key={tb.to}
+              to={tb.to}
+              end={tb.end}
+              data-testid={tb.testid}
               className={({ isActive }) =>
                 `flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl font-bold text-[10px] uppercase tracking-wider transition ${
                   isActive ? "bg-sun border-2 border-ink shadow-brutal-sm" : "text-slate-600 hover:bg-slate-100"
                 }`
               }
             >
-              <t.icon size={18} strokeWidth={2.5}/>
-              <span>{t.label}</span>
+              <tb.icon size={18} strokeWidth={2.5}/>
+              <span>{t(tb.labelKey)}</span>
             </NavLink>
           ))}
         </div>

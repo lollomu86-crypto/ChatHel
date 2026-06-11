@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api, getGuestToken } from "../../lib/api";
 import useChatSocket from "../../lib/useChatSocket";
-import { Send, Trophy, Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Send, Trophy, Check, Languages } from "lucide-react";
 import { toast } from "sonner";
 
 const CHALLENGE_TYPES = [
@@ -13,26 +14,27 @@ const CHALLENGE_TYPES = [
 ];
 
 const ChallengeCard = ({ m, isMine, onAccept }) => {
+  const { t } = useTranslation();
   const meta = m.meta || {};
-  const type = CHALLENGE_TYPES.find((t) => t.key === meta.type) || { label: meta.type || "Sfida", emoji: "🏆" };
+  const type = CHALLENGE_TYPES.find((tp) => tp.key === meta.type) || { label: meta.type || "Sfida", emoji: "🏆" };
   const accepted = meta.status === "accepted";
   return (
     <div data-testid={`challenge-card-${m.id}`} className="brutal-card p-4 bg-sun max-w-[85%]">
       <div className="flex items-center gap-2 mb-2">
         <span className="text-2xl">{type.emoji}</span>
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-700">Sfida lanciata</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-700">{t("public_chat.challenge_card_label")}</p>
       </div>
-      <p className="font-display text-lg font-black leading-tight">{m.sender_nickname} sfida a {type.label}</p>
+      <p className="font-display text-lg font-black leading-tight">{m.sender_nickname} {t("public_chat.challenge_to")} {type.label}</p>
       {meta.when && <p className="text-sm text-slate-700 mt-1">⏱ {meta.when}</p>}
       {m.content && <p className="text-sm mt-2 italic">"{m.content}"</p>}
       <div className="mt-3 pt-3 border-t-2 border-ink/20">
         {accepted ? (
-          <p className="text-sm font-bold text-ink inline-flex items-center gap-1"><Check size={14}/> Accettata da <span className="bg-mint border-2 border-ink px-1.5 rounded">{meta.accepted_nickname}</span></p>
+          <p className="text-sm font-bold text-ink inline-flex items-center gap-1"><Check size={14}/> {t("public_chat.challenge_accepted_by")} <span className="bg-mint border-2 border-ink px-1.5 rounded">{meta.accepted_nickname}</span></p>
         ) : isMine ? (
-          <p className="text-xs font-bold text-slate-600">In attesa di un avversario…</p>
+          <p className="text-xs font-bold text-slate-600">{t("public_chat.challenge_waiting")}</p>
         ) : (
           <button data-testid={`accept-challenge-${m.id}`} onClick={() => onAccept(m.id)} className="btn-primary !py-1.5 !px-4 text-sm">
-            Accetto! 🔥
+            {t("public_chat.challenge_accept")} 🔥
           </button>
         )}
       </div>
@@ -41,10 +43,29 @@ const ChallengeCard = ({ m, isMine, onAccept }) => {
 };
 
 export const ChatView = ({ messages, me, otherName, variant = "public", emptyText, onAcceptChallenge }) => {
+  const { t, i18n } = useTranslation();
   const endRef = useRef(null);
+  const [translations, setTranslations] = useState({});
+  const [showOriginal, setShowOriginal] = useState({});
+  const [translating, setTranslating] = useState({});
+
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  const translateMsg = async (m) => {
+    if (translations[m.id]) {
+      setShowOriginal((s) => ({ ...s, [m.id]: !s[m.id] }));
+      return;
+    }
+    setTranslating((s) => ({ ...s, [m.id]: true }));
+    try {
+      const { data } = await api.post("/translate", { text: m.content, target_lang: i18n.language });
+      setTranslations((s) => ({ ...s, [m.id]: data.translated }));
+    } catch { /* silent */ }
+    finally { setTranslating((s) => ({ ...s, [m.id]: false })); }
+  };
+
   if (!messages || messages.length === 0) {
-    return <div className="flex-1 flex items-center justify-center text-slate-500 text-sm py-12">{emptyText || "Nessun messaggio ancora. Rompi il ghiaccio!"}</div>;
+    return <div className="flex-1 flex items-center justify-center text-slate-500 text-sm py-12">{emptyText || t("public_chat.empty")}</div>;
   }
   return (
     <div className="flex-1 overflow-y-auto px-1 py-3 space-y-3">
@@ -60,13 +81,23 @@ export const ChatView = ({ messages, me, otherName, variant = "public", emptyTex
         }
         const isBot = m.sender_role === "ai" || m.sender_role === "reception";
         const bubble = isMe ? "bubble-self" : isBot ? "bubble-reception" : "bubble-other";
+        const isTranslated = translations[m.id] && !showOriginal[m.id];
+        const shownText = isTranslated ? translations[m.id] : m.content;
         return (
           <div key={m.id} data-testid={`msg-${m.id}`} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
             {!isMe && variant !== "private" && (
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1 ml-2">{m.sender_nickname}</span>
             )}
-            <div className={`${bubble} max-w-[78%] text-sm whitespace-pre-wrap break-words`}>{m.content}</div>
-            <span className="text-[10px] text-slate-400 mt-1 mx-2">{new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+            <div className={`${bubble} max-w-[78%] text-sm whitespace-pre-wrap break-words`}>{shownText}</div>
+            <div className="flex items-center gap-2 mt-1 mx-2">
+              <span className="text-[10px] text-slate-400">{new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+              {!isMe && (
+                <button data-testid={`translate-${m.id}`} onClick={() => translateMsg(m)} disabled={translating[m.id]} className="text-[10px] text-slate-500 hover:text-brand inline-flex items-center gap-1 font-bold uppercase tracking-wider">
+                  <Languages size={10}/>
+                  {translating[m.id] ? t("common.translating") : translations[m.id] ? (showOriginal[m.id] ? t("common.translate") : t("common.show_original")) : t("common.translate")}
+                </button>
+              )}
+            </div>
           </div>
         );
       })}
@@ -75,19 +106,20 @@ export const ChatView = ({ messages, me, otherName, variant = "public", emptyTex
   );
 };
 
-export const ChatComposer = ({ onSend, disabled, placeholder = "Scrivi un messaggio…", initialText = "" }) => {
-  const [t, setT] = useState(initialText);
-  useEffect(() => { if (initialText) setT(initialText); }, [initialText]);
+export const ChatComposer = ({ onSend, disabled, placeholder, initialText = "" }) => {
+  const { t } = useTranslation();
+  const [text, setText] = useState(initialText);
+  useEffect(() => { if (initialText) setText(initialText); }, [initialText]);
   const submit = (e) => {
     e.preventDefault();
-    if (!t.trim()) return;
-    onSend(t.trim());
-    setT("");
+    if (!text.trim()) return;
+    onSend(text.trim());
+    setText("");
   };
   return (
     <form onSubmit={submit} className="sticky bottom-20 bg-cream/95 backdrop-blur-md border-2 border-ink rounded-2xl p-2 shadow-brutal flex gap-2">
-      <input data-testid="chat-composer-input" value={t} onChange={(e)=>setT(e.target.value)} placeholder={placeholder} className="flex-1 px-3 py-2 bg-transparent focus:outline-none font-medium text-sm" />
-      <button data-testid="chat-send-btn" type="submit" disabled={disabled || !t.trim()} className="bg-brand text-white border-2 border-ink rounded-xl px-4 font-bold shadow-brutal-sm disabled:opacity-50">
+      <input data-testid="chat-composer-input" value={text} onChange={(e)=>setText(e.target.value)} placeholder={placeholder || t("public_chat.send_placeholder")} className="flex-1 px-3 py-2 bg-transparent focus:outline-none font-medium text-sm" />
+      <button data-testid="chat-send-btn" type="submit" disabled={disabled || !text.trim()} className="bg-brand text-white border-2 border-ink rounded-xl px-4 font-bold shadow-brutal-sm disabled:opacity-50">
         <Send size={16} strokeWidth={2.5}/>
       </button>
     </form>
@@ -95,6 +127,7 @@ export const ChatComposer = ({ onSend, disabled, placeholder = "Scrivi un messag
 };
 
 export default function PublicChat({ me }) {
+  const { t } = useTranslation();
   const [msgs, setMsgs] = useState([]);
   const [prefill, setPrefill] = useState("");
   const [showChallenge, setShowChallenge] = useState(false);
@@ -151,12 +184,12 @@ export default function PublicChat({ me }) {
     <div className="flex flex-col h-[calc(100vh-180px)]">
       <div className="mb-2 flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Sala comune</p>
-          <h2 className="font-display text-3xl font-black tracking-tight">Chat pubblica</h2>
-          <p className="text-sm text-slate-600">Tutti gli ospiti dell'hotel possono leggere e rispondere.</p>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">{t("public_chat.kicker")}</p>
+          <h2 className="font-display text-3xl font-black tracking-tight">{t("public_chat.title")}</h2>
+          <p className="text-sm text-slate-600">{t("public_chat.subtitle")}</p>
         </div>
         <button data-testid="open-challenge-btn" onClick={() => setShowChallenge(true)} className="btn-outline !py-2 !px-3 inline-flex items-center gap-2 text-sm shrink-0">
-          <Trophy size={16}/> Sfida
+          <Trophy size={16}/> {t("public_chat.challenge_btn")}
         </button>
       </div>
       <ChatView messages={msgs} me={me} variant="public" onAcceptChallenge={acceptChallenge} />
@@ -165,27 +198,27 @@ export default function PublicChat({ me }) {
       {showChallenge && (
         <div className="fixed inset-0 bg-ink/40 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setShowChallenge(false)}>
           <div className="brutal-card p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Rompighiaccio</p>
-            <h3 className="font-display text-2xl font-black mt-1">Lancia una sfida</h3>
-            <p className="text-sm text-slate-700 mt-1 mb-4">Scegli il gioco e (opzionale) quando.</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">{t("public_chat.challenge_kicker")}</p>
+            <h3 className="font-display text-2xl font-black mt-1">{t("public_chat.challenge_title")}</h3>
+            <p className="text-sm text-slate-700 mt-1 mb-4">{t("public_chat.challenge_sub")}</p>
             <div className="grid grid-cols-3 gap-2 mb-4">
-              {CHALLENGE_TYPES.map((t) => (
+              {CHALLENGE_TYPES.map((ct) => (
                 <button
-                  key={t.key}
-                  data-testid={`challenge-type-${t.key}`}
-                  onClick={() => setChType(t.key)}
-                  className={`border-2 border-ink rounded-xl p-2 text-xs font-bold flex flex-col items-center gap-1 transition ${chType === t.key ? "bg-sun shadow-brutal-sm" : "bg-white hover:bg-slate-50"}`}
+                  key={ct.key}
+                  data-testid={`challenge-type-${ct.key}`}
+                  onClick={() => setChType(ct.key)}
+                  className={`border-2 border-ink rounded-xl p-2 text-xs font-bold flex flex-col items-center gap-1 transition ${chType === ct.key ? "bg-sun shadow-brutal-sm" : "bg-white hover:bg-slate-50"}`}
                 >
-                  <span className="text-xl">{t.emoji}</span>
-                  <span>{t.label}</span>
+                  <span className="text-xl">{ct.emoji}</span>
+                  <span>{ct.label}</span>
                 </button>
               ))}
             </div>
-            <input data-testid="challenge-when-input" value={chWhen} onChange={(e) => setChWhen(e.target.value)} placeholder="Quando? (es. tra 10 min)" className="input-brutal mb-3"/>
-            <input data-testid="challenge-note-input" value={chNote} onChange={(e) => setChNote(e.target.value)} placeholder="Nota (opzionale) — es. 'vincitore offre un caffè'" className="input-brutal mb-4"/>
+            <input data-testid="challenge-when-input" value={chWhen} onChange={(e) => setChWhen(e.target.value)} placeholder={t("public_chat.when")} className="input-brutal mb-3"/>
+            <input data-testid="challenge-note-input" value={chNote} onChange={(e) => setChNote(e.target.value)} placeholder={t("public_chat.note")} className="input-brutal mb-4"/>
             <div className="flex gap-3">
-              <button onClick={() => setShowChallenge(false)} className="btn-outline flex-1">Annulla</button>
-              <button data-testid="send-challenge-btn" onClick={sendChallenge} className="btn-primary flex-1">Lancia 🏆</button>
+              <button onClick={() => setShowChallenge(false)} className="btn-outline flex-1">{t("common.cancel")}</button>
+              <button data-testid="send-challenge-btn" onClick={sendChallenge} className="btn-primary flex-1">{t("public_chat.challenge_launch")} 🏆</button>
             </div>
           </div>
         </div>

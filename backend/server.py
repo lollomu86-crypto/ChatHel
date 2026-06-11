@@ -197,6 +197,11 @@ class AdminCouponSendReq(BaseModel):
     message: str = ""
 
 
+class TranslateReq(BaseModel):
+    text: str
+    target_lang: str
+
+
 # ===== Auth deps =====
 async def get_current_guest(x_guest_token: Optional[str] = Header(None)) -> Guest:
     if not x_guest_token:
@@ -386,6 +391,31 @@ async def list_guests(guest: Guest = Depends(get_current_guest)):
     return docs
 
 
+@api_router.post("/translate")
+async def translate_text(req: TranslateReq, guest: Guest = Depends(get_current_guest)):
+    text = (req.text or "").strip()
+    if not text:
+        return {"translated": ""}
+    LANG_NAMES = {"it": "Italian", "en": "English", "es": "Spanish", "fr": "French", "de": "German",
+                  "pt": "Portuguese", "nl": "Dutch", "ru": "Russian", "zh": "Chinese (Simplified)", "ja": "Japanese"}
+    target = LANG_NAMES.get((req.target_lang or "en").lower(), "English")
+    sys_prompt = (
+        f"You are a translator. Translate the following text into {target}. "
+        "Return ONLY the translated text — no explanations, no quotes, preserve punctuation, emojis and proper names."
+    )
+    try:
+        llm = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"trans-{guest.id}-{uuid.uuid4()}",
+            system_message=sys_prompt,
+        ).with_model("openai", "gpt-5.2")
+        reply = await llm.send_message(UserMessage(text=text[:2000]))
+        return {"translated": str(reply).strip()}
+    except Exception as e:
+        logger.exception("translate error")
+        raise HTTPException(502, f"Translation error: {type(e).__name__}")
+
+
 # --- Daily question (rompighiaccio) ---
 @api_router.get("/daily-question")
 async def daily_question(guest: Guest = Depends(get_current_guest)):
@@ -466,7 +496,7 @@ async def get_private(other_id: str, guest: Guest = Depends(get_current_guest)):
 
 
 @api_router.post("/messages")
-async def send_message(req: MessageCreateReq, guest: Guest = Depends(get_current_guest)):
+async def send_message(req: MessageCreateReq, x_user_lang: Optional[str] = Header(None), guest: Guest = Depends(get_current_guest)):
     content = req.content.strip()
     if not content:
         raise HTTPException(400, "Messaggio vuoto")
@@ -488,11 +518,18 @@ async def send_message(req: MessageCreateReq, guest: Guest = Depends(get_current
     if req.channel == "ai":
         hotel = await db.hotels.find_one({"id": guest.hotel_id}, {"_id": 0})
         system_msg = (hotel.get("ai_prompt") if hotel else "") or "You are a helpful hotel concierge."
+        LANG_NAMES = {"it": "italiano", "en": "English", "es": "español", "fr": "français", "de": "Deutsch",
+                      "pt": "português", "nl": "Nederlands", "ru": "русский", "zh": "中文", "ja": "日本語"}
+        user_lang_name = LANG_NAMES.get((x_user_lang or "").lower())
+        lang_directive = (
+            f" Rispondi SEMPRE in {user_lang_name}. The guest's preferred language is {user_lang_name}."
+            if user_lang_name else " Rispondi nella lingua dell'ospite (di default in italiano)."
+        )
         try:
             llm = LlmChat(
                 api_key=EMERGENT_LLM_KEY,
                 session_id=f"ai-{guest.id}",
-                system_message=system_msg + " Rispondi nella lingua dell'ospite (di default in italiano). Sii breve e cordiale.",
+                system_message=system_msg + lang_directive + " Sii breve e cordiale.",
             ).with_model("openai", "gpt-5.2")
             reply = await llm.send_message(UserMessage(text=content))
             ai_msg = Message(
