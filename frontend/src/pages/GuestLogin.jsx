@@ -31,7 +31,7 @@ export default function GuestLogin() {
       <header className="border-b-2 border-ink bg-cream/80 backdrop-blur-xl sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between">
           <Link to="/" data-testid="back-home-link" className="inline-flex items-center gap-2 text-sm font-bold hover:underline">
-            <ArrowLeft size={16}/> <Logo size={28} withText textClass="text-lg"/>
+            <ArrowLeft size={16}/> <Logo size={36} withText textClass="text-xl"/>
           </Link>
           <Link to="/admin/login" data-testid="login-admin-link" className="text-sm font-bold text-slate-700 hover:text-ink">Sono un hotel →</Link>
         </div>

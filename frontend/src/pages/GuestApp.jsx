@@ -57,7 +57,7 @@ export default function GuestApp() {
       <header className="bg-cream/85 backdrop-blur-xl border-b-2 border-ink sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Logo size={32}/>
+            <Logo size={40}/>
             <div className="leading-tight">
               <p className="font-display font-black tracking-tight text-base">{me.hotel?.name || "ChatHel"}</p>
               <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-500">Ospite · {me.guest.nickname}</p>

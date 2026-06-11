@@ -19,7 +19,7 @@ export default function Landing() {
       {/* Nav */}
       <header className="bg-cream/80 backdrop-blur-xl border-b-2 border-ink sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-5 py-4 flex items-center justify-between">
-          <Logo size={38} withText textClass="text-2xl"/>
+          <Logo size={48} withText textClass="text-3xl"/>
           <div className="flex items-center gap-3">
             <Link to="/admin/login" data-testid="nav-admin-link" className="hidden sm:inline-flex text-sm font-bold text-slate-700 hover:text-ink">
               Per hotel
@@ -57,14 +57,18 @@ export default function Landing() {
           <div className="relative">
             <div className="brutal-card p-5 rotate-2">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-full bg-brand border-2 border-ink"></div>
+                <img
+                  src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&q=80&auto=format&fit=crop"
+                  alt="Sofia"
+                  className="w-10 h-10 rounded-full border-2 border-ink object-cover shadow-brutal-sm"
+                />
                 <div>
                   <p className="font-bold text-sm">Sofia · 412</p>
                   <p className="text-xs text-slate-500">In piscina ☀️</p>
                 </div>
               </div>
-              <div className="bubble-other text-sm max-w-[80%] mb-2">Sale per il tour in barca domani? 🛥️</div>
-              <div className="bubble-self text-sm max-w-[80%] ml-auto">Si! Posso aggiungere altri due amici?</div>
+              <div className="bubble-other text-sm max-w-[80%] mb-2">Chi viene al tour in barca domani? 🛥️</div>
+              <div className="bubble-self text-sm max-w-[80%] ml-auto">Io ci sono! Posso aggiungere altri due amici?</div>
             </div>
             <div className="brutal-card p-4 -rotate-3 mt-5 ml-8 bg-bubbleReception">
               <div className="flex items-center gap-2">

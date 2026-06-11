@@ -49,7 +49,7 @@ export default function AdminDashboard() {
       <header className="bg-white border-b-2 border-ink sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-5 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Logo size={38}/>
+            <Logo size={46}/>
             <div>
               <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-500">Admin · ChatHel</p>
               <h1 className="font-display font-black text-xl tracking-tight">{hotel?.name || "…"}</h1>
