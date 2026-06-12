@@ -60,3 +60,30 @@ ChatHel: piattaforma chiusa per ospiti di hotel. Accesso via QR/codice + nicknam
 - Add a User-auth `/api/coupons` endpoint to list coupons by `recipient_id = stay.id` for historical lookup.
 - Real image upload via object storage to replace photo URL string (today: any public URL or pravatar suggestion).
 - Real Stripe payments for paid coupons (currently mock).
+
+## Feature update — 2026-02-12 — Settings (User + Hotel)
+
+### User Settings (`/app/settings`)
+- Install PWA (beforeinstallprompt + iOS fallback message)
+- Push notifications toggle (subscribe/unsubscribe + send test)
+- Lingua (LanguageSwitcher)
+- Profilo (name, photo URL, bio) → PATCH /auth/profile
+- Cambio password → POST /auth/change-password
+- Elimina account (soft-delete) → POST /auth/delete-account (anonymises email/name/photo/bio, hashes nothing, ends sessions, closes active stays, removes push_subs)
+- Reachable via header icon + Profile panel card.
+
+### Admin Settings tab (`/admin/dashboard`)
+- Hotel anagrafica (nome, codice di accesso, lingua di default) — PATCH /admin/hotel
+- Branding (logo URL, brand color) — PATCH /admin/hotel
+- AI Concierge prompt (max 4000 chars) — PATCH /admin/hotel
+- Welcome coupon (template scelto + messaggio personalizzato) — PATCH /admin/hotel
+- Cambio password admin — POST /admin/change-password
+- Inline edit dialog (AdminEditDialog) for events / aree / coupon templates → PATCH /admin/{events,areas,coupon-templates}/{id}
+
+### Verified
+- testing_agent_v3 iteration_5 → 13/13 backend tests PASS, complete UI flow validated.
+
+### Known notes (deferred)
+- server.py at 1635 lines — refactor into modules after next major feature.
+- admin_password still plaintext in Hotel doc (pre-existing). Should bcrypt before any production launch.
+- Admin uses `X-Admin-Token` while users use `Authorization: Bearer` — works fine but worth unifying later.

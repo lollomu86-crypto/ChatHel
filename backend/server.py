@@ -782,6 +782,7 @@ async def auth_delete_account(user: User = Depends(get_current_user)):
         }},
     )
     await db.user_sessions.delete_many({"user_id": user.user_id})
+    await db.push_subs.delete_many({"user_id": user.user_id})
     await db.stays.update_many({"user_id": user.user_id, "active": True},
                                 {"$set": {"active": False, "left_at": now_iso()}})
     return {"ok": True}
