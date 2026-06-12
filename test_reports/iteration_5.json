@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 5 — User & Hotel Settings sections + soft-delete: 13/13 backend tests pass; full UI flow validated for both user (/app/settings) and admin Impostazioni tab. Settings screen renders all sections, profile PATCH, password change, soft-delete (token & login invalidated), admin hotel/branding/AI-prompt PATCH all succeeded. Admin demo state restored (name, brand_color, ai_prompt, admin password admin123). Legacy guest join (/api/guest/login) and welcome coupon on /api/stays/join still green.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "SettingsPanel /app/settings", "issues": ["In headless test runs, push-enable-btn is hidden because permission state resolves to 'denied' (push-denied tag is shown). In production browsers with permission=='default' the button shows correctly — confirmed by source. Non-blocking."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration5.py",
+    "/app/test_reports/pytest/iteration5_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now 1635 lines — past the 700-line guideline. Strongly recommend splitting into modules (auth, stays, admin, coupons, messages, push) before next iteration.",
+    "POST /api/admin/change-password compares hotel.admin_password in PLAIN TEXT (server.py:1219). The same plaintext storage existed before this iteration but the new 'change password' UI surfaces it. Consider hashing admin_password (bcrypt) — currently a security regression risk if Mongo backup leaks.",
+    "PATCH /api/auth/profile silently ignores 'name' shorter than 2 chars (no 400 error). UX nit: client should validate or backend should return 400.",
+    "/api/auth/delete-account does NOT delete the user's coupons or messages (intentional per spec); but it also doesn't clear push_subscriptions for the user — they may keep receiving pushes if any active. Consider deleting push_subscriptions on soft-delete.",
+    "Admin token uses X-Admin-Token header (NOT Authorization Bearer); this is inconsistent with the user-side flow that uses Bearer. Documented now in test file. Consider unifying."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration5.py (new)"
+  ],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% (User settings + Admin settings + Admin edit dialog all working)"},
+  "test_credentials": "Admin: access_code=WELCOME2026 password=admin123 (verified restored). Test users created with set_<ts>@chathel.test / test1234 then soft-deleted.",
+  "seed_data_creation": "None permanent. Test artifacts (event/area/coupon-template created in pytest) are deleted in test teardown. Soft-deleted accounts remain anonymised in DB (intentional behaviour).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 13 iter5 tests pass via: REACT_APP_BACKEND_URL=... pytest /app/backend/tests/test_iteration5.py -v. Admin token field is 'token' (NOT 'admin_token') and header is X-Admin-Token. /api/admin/login and /api/guest/login expect 'access_code' (NOT 'hotel_code'). /api/admin/me returns {hotel:{...}} wrapper, /api/admin/hotel PATCH returns flat dict (verified in tests). User-side settings page is at /app/settings and requires an ACTIVE STAY to render (the /app guard redirects to /login otherwise — tests join WELCOME2026 first). pwa-install-btn/push-enable-btn won't appear in headless mode; the page correctly shows pwa-unavailable / push-denied fallback testids.",
+  "rca of the issue": "N/A — no defects."
+}

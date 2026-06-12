@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import { toast } from "sonner";
-import { History, ChevronRight, Hotel as HotelIcon } from "lucide-react";
+import { History, ChevronRight, Hotel as HotelIcon, Settings as SettingsIcon } from "lucide-react";
 
 export default function ProfilePanel({ me, onUpdated }) {
   const [status, setStatus] = useState(me?.status_text || "");
@@ -79,6 +79,20 @@ export default function ProfilePanel({ me, onUpdated }) {
           </div>
         </Link>
       )}
+
+      <Link to="/app/settings" data-testid="profile-settings-link" className="block brutal-card p-5 hover:bg-bubbleSelf transition group">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl border-2 border-ink bg-bubbleReception flex items-center justify-center shadow-brutal-sm shrink-0">
+            <SettingsIcon size={22} strokeWidth={2.5}/>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Preferenze</p>
+            <p className="font-display text-xl font-black tracking-tight leading-tight">Impostazioni</p>
+            <p className="text-xs text-slate-600 mt-0.5">Installa app, notifiche, profilo e password.</p>
+          </div>
+          <ChevronRight size={20} strokeWidth={2.5} className="text-slate-500 group-hover:translate-x-0.5 transition"/>
+        </div>
+      </Link>
 
       <div className="brutal-card p-6">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-1">Stato attuale</p>

@@ -49,6 +49,9 @@ class Hotel(BaseModel):
     ai_prompt: str = "You are a friendly hotel reception assistant. Answer guest questions about the hotel services, hours, amenities, and local recommendations."
     welcome_coupon_template_id: Optional[str] = None
     welcome_coupon_message: str = "Benvenuto nel nostro hotel! Un piccolo regalo per iniziare."
+    default_language: str = "it"
+    logo_url: Optional[str] = None
+    brand_color: Optional[str] = None  # e.g. "#1E40AF"
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -61,6 +64,7 @@ class User(BaseModel):
     photo_url: Optional[str] = None
     bio: str = ""
     auth_provider: Literal["email", "google", "both"] = "email"
+    deleted: bool = False
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -200,6 +204,52 @@ class ProfileUpdateReq(BaseModel):
     bio: Optional[str] = None
 
 
+class ChangePasswordReq(BaseModel):
+    current_password: Optional[str] = None  # required if user has password set
+    new_password: str
+
+
+class AdminChangePasswordReq(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class HotelUpdateReq(BaseModel):
+    name: Optional[str] = None
+    access_code: Optional[str] = None
+    ai_prompt: Optional[str] = None
+    welcome_coupon_template_id: Optional[str] = None
+    welcome_coupon_message: Optional[str] = None
+    default_language: Optional[str] = None
+    logo_url: Optional[str] = None
+    brand_color: Optional[str] = None
+
+
+class EventUpdateReq(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    event_time: Optional[str] = None
+    location: Optional[str] = None
+
+
+class AreaUpdateReq(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    hours: Optional[str] = None
+    bookable: Optional[bool] = None
+
+
+class CouponTemplateUpdateReq(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    emoji: Optional[str] = None
+    category: Optional[Literal["drink", "food", "spa", "activity", "other"]] = None
+    price_cents: Optional[int] = None
+    currency: Optional[str] = None
+
+
 class JoinStayReq(BaseModel):
     access_code: str
     nickname: Optional[str] = None
@@ -314,6 +364,8 @@ async def get_current_user(authorization: Optional[str] = Header(None), x_user_t
     user_doc = await db.users.find_one({"user_id": sess["user_id"]}, {"_id": 0})
     if not user_doc:
         raise HTTPException(401, "User not found")
+    if user_doc.get("deleted"):
+        raise HTTPException(401, "Account eliminato")
     return User(**user_doc)
 
 
@@ -696,6 +748,45 @@ async def auth_update_profile(req: ProfileUpdateReq, user: User = Depends(get_cu
     return User(**udoc).model_dump(exclude={"password_hash"})
 
 
+@api_router.post("/auth/change-password")
+async def auth_change_password(req: ChangePasswordReq, user: User = Depends(get_current_user)):
+    if len(req.new_password) < 6:
+        raise HTTPException(400, "Password troppo corta (min 6)")
+    udoc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    has_pw = bool(udoc.get("password_hash"))
+    if has_pw:
+        if not req.current_password or not verify_password(req.current_password, udoc["password_hash"]):
+            raise HTTPException(400, "Password attuale errata")
+    new_hash = hash_password(req.new_password)
+    provider = "both" if udoc.get("auth_provider") == "google" else (udoc.get("auth_provider") or "email")
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {"password_hash": new_hash, "auth_provider": provider}},
+    )
+    return {"ok": True}
+
+
+@api_router.post("/auth/delete-account")
+async def auth_delete_account(user: User = Depends(get_current_user)):
+    """Soft-delete the account. Keeps messages/coupons for other guests but
+    invalidates all sessions, closes active stays, anonymises the email."""
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {
+            "deleted": True,
+            "email": f"deleted_{user.user_id}@chathel.local",
+            "name": "Ospite eliminato",
+            "photo_url": None,
+            "bio": "",
+            "password_hash": None,
+        }},
+    )
+    await db.user_sessions.delete_many({"user_id": user.user_id})
+    await db.stays.update_many({"user_id": user.user_id, "active": True},
+                                {"$set": {"active": False, "left_at": now_iso()}})
+    return {"ok": True}
+
+
 # --- Stays (joining a hotel) ---
 @api_router.post("/stays/join")
 async def stays_join(req: JoinStayReq, user: User = Depends(get_current_user)):
@@ -1061,7 +1152,76 @@ async def admin_login(req: AdminLoginReq):
 
 @api_router.get("/admin/me")
 async def admin_me(hotel: Hotel = Depends(get_current_admin)):
-    return {"hotel": {"id": hotel.id, "name": hotel.name, "access_code": hotel.access_code, "ai_prompt": hotel.ai_prompt}}
+    return {"hotel": {
+        "id": hotel.id, "name": hotel.name, "access_code": hotel.access_code,
+        "ai_prompt": hotel.ai_prompt,
+        "welcome_coupon_template_id": hotel.welcome_coupon_template_id,
+        "welcome_coupon_message": hotel.welcome_coupon_message,
+        "default_language": hotel.default_language,
+        "logo_url": hotel.logo_url,
+        "brand_color": hotel.brand_color,
+    }}
+
+
+@api_router.patch("/admin/hotel")
+async def admin_update_hotel(req: HotelUpdateReq, hotel: Hotel = Depends(get_current_admin)):
+    upd = {}
+    if req.name is not None and len(req.name.strip()) >= 2:
+        upd["name"] = req.name.strip()[:80]
+    if req.access_code is not None:
+        new_code = req.access_code.strip().upper()
+        if len(new_code) < 4 or len(new_code) > 32:
+            raise HTTPException(400, "Codice troppo corto o troppo lungo")
+        clash = await db.hotels.find_one({"access_code": new_code, "id": {"$ne": hotel.id}}, {"_id": 0})
+        if clash:
+            raise HTTPException(409, "Codice già usato da un altro hotel")
+        upd["access_code"] = new_code
+    if req.ai_prompt is not None:
+        upd["ai_prompt"] = req.ai_prompt.strip()[:4000]
+    if req.welcome_coupon_template_id is not None:
+        # Either set to a real template (verified) or clear with empty string
+        if req.welcome_coupon_template_id == "":
+            upd["welcome_coupon_template_id"] = None
+        else:
+            tpl = await db.coupon_templates.find_one(
+                {"id": req.welcome_coupon_template_id, "hotel_id": hotel.id}, {"_id": 0}
+            )
+            if not tpl:
+                raise HTTPException(404, "Template coupon non trovato")
+            upd["welcome_coupon_template_id"] = tpl["id"]
+    if req.welcome_coupon_message is not None:
+        upd["welcome_coupon_message"] = req.welcome_coupon_message.strip()[:200]
+    if req.default_language is not None:
+        upd["default_language"] = req.default_language.strip()[:8] or "it"
+    if req.logo_url is not None:
+        upd["logo_url"] = (req.logo_url.strip()[:500]) or None
+    if req.brand_color is not None:
+        bc = req.brand_color.strip()
+        if bc and not bc.startswith("#"):
+            raise HTTPException(400, "Colore non valido")
+        upd["brand_color"] = bc or None
+    if upd:
+        await db.hotels.update_one({"id": hotel.id}, {"$set": upd})
+    hdoc = await db.hotels.find_one({"id": hotel.id}, {"_id": 0})
+    return {
+        "id": hdoc["id"], "name": hdoc["name"], "access_code": hdoc["access_code"],
+        "ai_prompt": hdoc.get("ai_prompt"),
+        "welcome_coupon_template_id": hdoc.get("welcome_coupon_template_id"),
+        "welcome_coupon_message": hdoc.get("welcome_coupon_message"),
+        "default_language": hdoc.get("default_language"),
+        "logo_url": hdoc.get("logo_url"),
+        "brand_color": hdoc.get("brand_color"),
+    }
+
+
+@api_router.post("/admin/change-password")
+async def admin_change_password(req: AdminChangePasswordReq, hotel: Hotel = Depends(get_current_admin)):
+    if hotel.admin_password != req.current_password:
+        raise HTTPException(400, "Password attuale errata")
+    if len(req.new_password) < 6:
+        raise HTTPException(400, "Password troppo corta (min 6)")
+    await db.hotels.update_one({"id": hotel.id}, {"$set": {"admin_password": req.new_password}})
+    return {"ok": True}
 
 
 @api_router.get("/admin/guests")
@@ -1097,6 +1257,18 @@ async def admin_delete_event(event_id: str, hotel: Hotel = Depends(get_current_a
     return {"ok": True}
 
 
+@api_router.patch("/admin/events/{event_id}")
+async def admin_update_event(event_id: str, req: EventUpdateReq, hotel: Hotel = Depends(get_current_admin)):
+    upd = {k: v for k, v in req.model_dump(exclude_unset=True).items() if v is not None}
+    if not upd:
+        raise HTTPException(400, "Nessun cambiamento")
+    res = await db.events.update_one({"id": event_id, "hotel_id": hotel.id}, {"$set": upd})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Evento non trovato")
+    doc = await db.events.find_one({"id": event_id, "hotel_id": hotel.id}, {"_id": 0})
+    return doc
+
+
 # Admin areas CRUD
 @api_router.get("/admin/areas")
 async def admin_list_areas(hotel: Hotel = Depends(get_current_admin)):
@@ -1115,6 +1287,18 @@ async def admin_create_area(req: AreaCreateReq, hotel: Hotel = Depends(get_curre
 async def admin_delete_area(area_id: str, hotel: Hotel = Depends(get_current_admin)):
     await db.areas.delete_one({"id": area_id, "hotel_id": hotel.id})
     return {"ok": True}
+
+
+@api_router.patch("/admin/areas/{area_id}")
+async def admin_update_area(area_id: str, req: AreaUpdateReq, hotel: Hotel = Depends(get_current_admin)):
+    upd = {k: v for k, v in req.model_dump(exclude_unset=True).items() if v is not None}
+    if not upd:
+        raise HTTPException(400, "Nessun cambiamento")
+    res = await db.areas.update_one({"id": area_id, "hotel_id": hotel.id}, {"$set": upd})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Area non trovata")
+    doc = await db.areas.find_one({"id": area_id, "hotel_id": hotel.id}, {"_id": 0})
+    return doc
 
 
 # Admin reception chat
@@ -1244,7 +1428,24 @@ async def admin_create_template(req: CouponTemplateReq, hotel: Hotel = Depends(g
 @api_router.delete("/admin/coupon-templates/{template_id}")
 async def admin_delete_template(template_id: str, hotel: Hotel = Depends(get_current_admin)):
     await db.coupon_templates.delete_one({"id": template_id, "hotel_id": hotel.id})
+    # If this was the welcome coupon, clear it on the hotel
+    await db.hotels.update_one(
+        {"id": hotel.id, "welcome_coupon_template_id": template_id},
+        {"$set": {"welcome_coupon_template_id": None}},
+    )
     return {"ok": True}
+
+
+@api_router.patch("/admin/coupon-templates/{template_id}")
+async def admin_update_template(template_id: str, req: CouponTemplateUpdateReq, hotel: Hotel = Depends(get_current_admin)):
+    upd = {k: v for k, v in req.model_dump(exclude_unset=True).items() if v is not None}
+    if not upd:
+        raise HTTPException(400, "Nessun cambiamento")
+    res = await db.coupon_templates.update_one({"id": template_id, "hotel_id": hotel.id}, {"$set": upd})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Template non trovato")
+    doc = await db.coupon_templates.find_one({"id": template_id, "hotel_id": hotel.id}, {"_id": 0})
+    return doc
 
 
 @api_router.post("/admin/coupons")

@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { api, clearAdminToken, getAdminToken } from "../lib/api";
 import useChatSocket from "../lib/useChatSocket";
 import { toast } from "sonner";
-import { LogOut, Plus, Trash2, Users, CalendarHeart, MapPinned, MessageSquare, Send, QrCode, Gift, Check } from "lucide-react";
+import { LogOut, Plus, Trash2, Users, CalendarHeart, MapPinned, MessageSquare, Send, QrCode, Gift, Check, Settings, Pencil, Save, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import Logo from "../components/Logo";
+import AdminSettingsTab from "./admin/AdminSettingsTab";
+import AdminEditDialog from "./admin/AdminEditDialog";
 
 const Tab = ({ active, onClick, children, testid }) => (
   <button data-testid={testid} onClick={onClick} className={`px-4 py-2 rounded-xl font-bold text-sm border-2 border-ink transition ${active ? "bg-sun shadow-brutal-sm" : "bg-white hover:bg-slate-50"}`}>
@@ -88,6 +90,7 @@ export default function AdminDashboard() {
           <Tab testid="admin-tab-areas" active={tab==="areas"} onClick={()=>setTab("areas")}><MapPinned size={14} className="inline -mt-0.5 mr-1"/> Aree</Tab>
           <Tab testid="admin-tab-coupons" active={tab==="coupons"} onClick={()=>setTab("coupons")}><Gift size={14} className="inline -mt-0.5 mr-1"/> Coupon</Tab>
           <Tab testid="admin-tab-reception" active={tab==="reception"} onClick={()=>setTab("reception")}><MessageSquare size={14} className="inline -mt-0.5 mr-1"/> Reception ({threads.length})</Tab>
+          <Tab testid="admin-tab-settings" active={tab==="settings"} onClick={()=>setTab("settings")}><Settings size={14} className="inline -mt-0.5 mr-1"/> Impostazioni</Tab>
         </div>
       </header>
 
@@ -105,6 +108,7 @@ export default function AdminDashboard() {
             }}
           />
         )}
+        {tab === "settings" && hotel && <AdminSettingsTab hotel={hotel} tpls={couponTpls} onUpdated={loadAll}/>}
       </main>
       {showQR && hotel && (
         <div className="fixed inset-0 bg-ink/50 z-50 flex items-center justify-center p-4" onClick={() => setShowQR(false)}>
@@ -157,6 +161,7 @@ const GuestsTab = ({ guests, reload }) => {
 
 const EventsTab = ({ events, reload }) => {
   const [form, setForm] = useState({ title: "", description: "", event_time: "", location: "", image_url: "" });
+  const [editing, setEditing] = useState(null);
   const create = async (e) => {
     e.preventDefault();
     try { await api.post("/admin/events", form); toast.success("Evento creato"); setForm({ title: "", description: "", event_time: "", location: "", image_url: "" }); reload(); }
@@ -180,19 +185,38 @@ const EventsTab = ({ events, reload }) => {
             {ev.image_url && <img src={ev.image_url} alt={ev.title} className="w-full h-32 object-cover rounded-md border-2 border-ink mb-3"/>}
             <div className="flex justify-between items-start gap-2">
               <h4 className="font-bold">{ev.title}</h4>
-              <button data-testid={`event-delete-${ev.id}`} onClick={()=>del(ev.id)} className="text-slate-500 hover:text-brand"><Trash2 size={14}/></button>
+              <div className="flex items-center gap-1">
+                <button data-testid={`event-edit-${ev.id}`} onClick={() => setEditing(ev)} className="text-slate-500 hover:text-brand"><Pencil size={14}/></button>
+                <button data-testid={`event-delete-${ev.id}`} onClick={()=>del(ev.id)} className="text-slate-500 hover:text-brand"><Trash2 size={14}/></button>
+              </div>
             </div>
             <p className="text-xs text-slate-600 mt-1">{ev.event_time} {ev.location && `· ${ev.location}`}</p>
             <p className="text-sm mt-2">{ev.description}</p>
           </div>
         ))}
       </div>
+      <AdminEditDialog
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        onSaved={reload}
+        title="Modifica evento"
+        endpoint={editing ? `/admin/events/${editing.id}` : ""}
+        initial={editing || {}}
+        fields={[
+          { name: "title", label: "Titolo", type: "text", maxLength: 120 },
+          { name: "description", label: "Descrizione", type: "textarea", maxLength: 600 },
+          { name: "event_time", label: "Orario", type: "text", placeholder: "Es. Oggi 19:00" },
+          { name: "location", label: "Luogo", type: "text" },
+          { name: "image_url", label: "URL immagine", type: "text", placeholder: "https://…" },
+        ]}
+      />
     </div>
   );
 };
 
 const AreasTab = ({ areas, reload }) => {
   const [form, setForm] = useState({ name: "", description: "", hours: "08:00 - 22:00", image_url: "", bookable: true });
+  const [editing, setEditing] = useState(null);
   const create = async (e) => {
     e.preventDefault();
     try { await api.post("/admin/areas", form); toast.success("Area creata"); setForm({ name: "", description: "", hours: "08:00 - 22:00", image_url: "", bookable: true }); reload(); }
@@ -218,13 +242,31 @@ const AreasTab = ({ areas, reload }) => {
             {a.image_url && <img src={a.image_url} alt={a.name} className="w-full h-32 object-cover rounded-md border-2 border-ink mb-3"/>}
             <div className="flex justify-between items-start gap-2">
               <h4 className="font-bold">{a.name}</h4>
-              <button data-testid={`area-delete-${a.id}`} onClick={()=>del(a.id)} className="text-slate-500 hover:text-brand"><Trash2 size={14}/></button>
+              <div className="flex items-center gap-1">
+                <button data-testid={`area-edit-${a.id}`} onClick={() => setEditing(a)} className="text-slate-500 hover:text-brand"><Pencil size={14}/></button>
+                <button data-testid={`area-delete-${a.id}`} onClick={()=>del(a.id)} className="text-slate-500 hover:text-brand"><Trash2 size={14}/></button>
+              </div>
             </div>
             <p className="text-xs text-slate-600">{a.hours} {a.bookable ? "· prenotabile" : ""}</p>
             <p className="text-sm mt-2">{a.description}</p>
           </div>
         ))}
       </div>
+      <AdminEditDialog
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        onSaved={reload}
+        title="Modifica area"
+        endpoint={editing ? `/admin/areas/${editing.id}` : ""}
+        initial={editing || {}}
+        fields={[
+          { name: "name", label: "Nome", type: "text", maxLength: 80 },
+          { name: "description", label: "Descrizione", type: "textarea", maxLength: 400 },
+          { name: "hours", label: "Orari", type: "text" },
+          { name: "image_url", label: "URL immagine", type: "text", placeholder: "https://…" },
+          { name: "bookable", label: "Prenotabile", type: "checkbox", placeholder: "Permetti prenotazioni dall'app" },
+        ]}
+      />
     </div>
   );
 };
@@ -235,6 +277,7 @@ const CouponsAdminTab = ({ tpls, history, guests, reload }) => {
   const [form, setForm] = useState({ name: "", description: "", emoji: "🎁", category: "drink", price_cents: 500 });
   const [sendForm, setSendForm] = useState({ template_id: "", recipient_id: "", message: "" });
   const [sending, setSending] = useState(false);
+  const [editing, setEditing] = useState(null);
 
   const createTpl = async (e) => {
     e.preventDefault();
@@ -303,6 +346,7 @@ const CouponsAdminTab = ({ tpls, history, guests, reload }) => {
                   <p className="text-xs text-slate-600 truncate">{t.description}</p>
                 </div>
                 <p className="font-bold text-sm">{fmtPriceAdmin(t.price_cents)}</p>
+                <button data-testid={`ct-edit-${t.id}`} onClick={() => setEditing(t)} className="text-slate-500 hover:text-brand"><Pencil size={14}/></button>
                 <button data-testid={`ct-delete-${t.id}`} onClick={() => delTpl(t.id)} className="text-slate-500 hover:text-brand"><Trash2 size={14}/></button>
               </div>
             ))}
@@ -333,6 +377,27 @@ const CouponsAdminTab = ({ tpls, history, guests, reload }) => {
           )}
         </div>
       </div>
+      <AdminEditDialog
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        onSaved={reload}
+        title="Modifica coupon"
+        endpoint={editing ? `/admin/coupon-templates/${editing.id}` : ""}
+        initial={editing || {}}
+        fields={[
+          { name: "name", label: "Nome", type: "text", maxLength: 80 },
+          { name: "description", label: "Descrizione", type: "text", maxLength: 200 },
+          { name: "emoji", label: "Emoji", type: "text", maxLength: 4 },
+          { name: "category", label: "Categoria", type: "select", options: [
+            { value: "drink", label: "Drink" },
+            { value: "food", label: "Food" },
+            { value: "spa", label: "Spa" },
+            { value: "activity", label: "Attività" },
+            { value: "other", label: "Altro" },
+          ]},
+          { name: "price_cents", label: "Prezzo (centesimi)", type: "number", min: 0 },
+        ]}
+      />
     </div>
   );
 };
