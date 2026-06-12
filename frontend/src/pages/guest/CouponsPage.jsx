@@ -17,7 +17,7 @@ const CouponCard = ({ c, mode, onRedeem }) => {
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">{fromHotel ? "Omaggio hotel" : mode === "received" ? `Da ${c.sender_nickname}` : `A ${c.recipient_nickname}`}</p>
           <p className="font-display text-lg font-black truncate">{c.name}</p>
           <p className="text-sm text-slate-700">{c.description}</p>
-          {c.message && <p className="text-sm italic mt-1 text-slate-700">"{c.message}"</p>}
+          {c.message && <p className="text-sm italic mt-1 text-slate-700">&quot;{c.message}&quot;</p>}
         </div>
         <div className="text-right shrink-0">
           <p className="font-bold">{fmtPrice(c.price_cents, c.currency)}</p>

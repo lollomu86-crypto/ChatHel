@@ -55,7 +55,7 @@ export default function PushPrompt() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-bold text-sm leading-tight">Attiva le notifiche</p>
-          <p className="text-xs text-slate-700">Messaggi, sfide, eventi e coupon — anche con l'app chiusa.</p>
+          <p className="text-xs text-slate-700">Messaggi, sfide, eventi e coupon — anche con l&apos;app chiusa.</p>
         </div>
         <button data-testid="push-enable-btn" onClick={enable} disabled={loading} className="btn-primary !py-1.5 !px-3 text-xs">
           {loading ? "…" : "Attiva"}

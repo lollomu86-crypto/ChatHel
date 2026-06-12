@@ -58,7 +58,7 @@ export default function QRScanner({ onResult, onClose }) {
         {!running && !error && <p className="text-xs text-slate-600 mt-3">Apertura fotocamera in corso…</p>}
         {error && (
           <p className="text-xs text-brand font-bold mt-3" data-testid="qr-error">
-            ⚠️ {error} — assicurati di permettere l'accesso alla fotocamera.
+            ⚠️ {error} — assicurati di permettere l&apos;accesso alla fotocamera.
           </p>
         )}
         <p className="text-xs text-slate-500 mt-3">Inquadra il QR code del tuo hotel. Verrà riempito automaticamente il codice di accesso.</p>

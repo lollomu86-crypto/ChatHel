@@ -115,7 +115,7 @@ export default function AdminDashboard() {
               <QRCodeSVG value={hotel.access_code} size={220} bgColor="#FFFFFF" fgColor="#0A0A0A" level="M" includeMargin={false}/>
             </div>
             <p className="mt-4 font-mono text-lg font-black tracking-widest">{hotel.access_code}</p>
-            <p className="text-sm text-slate-600 mt-2">Gli ospiti inquadrano il QR dalla schermata "Entra" oppure inseriscono il codice manualmente.</p>
+            <p className="text-sm text-slate-600 mt-2">Gli ospiti inquadrano il QR dalla schermata &quot;Entra&quot; oppure inseriscono il codice manualmente.</p>
             <button onClick={() => setShowQR(false)} className="btn-primary mt-5">Chiudi</button>
           </div>
         </div>
