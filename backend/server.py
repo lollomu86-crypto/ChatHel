@@ -47,6 +47,8 @@ class Hotel(BaseModel):
     access_code: str
     admin_password: str
     ai_prompt: str = "You are a friendly hotel reception assistant. Answer guest questions about the hotel services, hours, amenities, and local recommendations."
+    welcome_coupon_template_id: Optional[str] = None
+    welcome_coupon_message: str = "Benvenuto nel nostro hotel! Un piccolo regalo per iniziare."
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -648,13 +650,15 @@ async def auth_google_session(req: GoogleSessionReq):
             "auth_provider": "both" if existing.get("password_hash") else "google",
         }})
         user_id = existing["user_id"]
+        is_new = False
     else:
         user = User(email=email, name=name, photo_url=picture, auth_provider="google")
         await db.users.insert_one(user.model_dump())
         user_id = user.user_id
+        is_new = True
     token = await create_session(user_id)
     udoc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
-    return {"token": token, "user": User(**udoc).model_dump(exclude={"password_hash"})}
+    return {"token": token, "user": User(**udoc).model_dump(exclude={"password_hash"}), "is_new": is_new}
 
 
 @api_router.get("/auth/me")
@@ -708,7 +712,37 @@ async def stays_join(req: JoinStayReq, user: User = Depends(get_current_user)):
         nickname = f"{nickname} · {user.user_id[-4:].upper()}"
     stay = Stay(user_id=user.user_id, hotel_id=hotel["id"], nickname=nickname)
     await db.stays.insert_one(stay.model_dump())
-    return {"stay": stay.model_dump(), "hotel": {"id": hotel["id"], "name": hotel["name"]}}
+
+    # Auto-send welcome coupon if configured
+    welcome_coupon_out = None
+    wid = hotel.get("welcome_coupon_template_id")
+    if wid:
+        tpl = await db.coupon_templates.find_one({"id": wid, "hotel_id": hotel["id"]}, {"_id": 0})
+        if tpl:
+            wc = Coupon(
+                hotel_id=hotel["id"], template_id=tpl["id"],
+                name=tpl["name"], description=tpl.get("description", ""), emoji=tpl.get("emoji", "🎁"),
+                category=tpl.get("category", "drink"), price_cents=tpl["price_cents"], currency=tpl.get("currency", "EUR"),
+                sender_id="hotel", sender_nickname=hotel["name"], sender_type="hotel",
+                recipient_id=stay.id, recipient_nickname=nickname,
+                message=hotel.get("welcome_coupon_message", "Benvenuto!"),
+            )
+            await db.coupons.insert_one(wc.model_dump())
+            await manager.broadcast_coupon(wc.model_dump())
+            welcome_coupon_out = wc.model_dump()
+
+    return {"stay": stay.model_dump(), "hotel": {"id": hotel["id"], "name": hotel["name"]}, "welcome_coupon": welcome_coupon_out}
+
+
+@api_router.get("/stays/history")
+async def stays_history(user: User = Depends(get_current_user)):
+    stays = await db.stays.find({"user_id": user.user_id}, {"_id": 0}).sort("joined_at", -1).to_list(200)
+    hotel_ids = list({s["hotel_id"] for s in stays})
+    hotels = {}
+    if hotel_ids:
+        async for h in db.hotels.find({"id": {"$in": hotel_ids}}, {"_id": 0}):
+            hotels[h["id"]] = {"id": h["id"], "name": h["name"]}
+    return [{**s, "hotel": hotels.get(s["hotel_id"])} for s in stays]
 
 
 @api_router.post("/stays/leave")
@@ -1271,6 +1305,17 @@ async def bootstrap():
     else:
         hotel_id = existing["id"]
 
+    # Backfill: ensure hotel has a welcome coupon template (use first seeded "Caffè espresso" if missing)
+    hdoc = await db.hotels.find_one({"id": hotel_id}, {"_id": 0})
+    if hdoc and not hdoc.get("welcome_coupon_template_id"):
+        first_tpl = await db.coupon_templates.find_one({"hotel_id": hotel_id}, {"_id": 0}, sort=[("price_cents", 1)])
+        if first_tpl:
+            await db.hotels.update_one(
+                {"id": hotel_id},
+                {"$set": {"welcome_coupon_template_id": first_tpl["id"],
+                          "welcome_coupon_message": "Benvenuto al ChatHel Resort! Un caffè offerto dalla casa ☕"}},
+            )
+
     # Seed areas if none
     if await db.areas.count_documents({"hotel_id": hotel_id}) == 0:
         for a in [
@@ -1302,8 +1347,15 @@ async def bootstrap():
 
     # Seed coupon templates if none
     if await db.coupon_templates.count_documents({"hotel_id": hotel_id}) == 0:
+        welcome_tpl = CouponTemplate(hotel_id=hotel_id, name="Caffè espresso", description="Un caffè al bar dell'hotel.", emoji="☕", category="drink", price_cents=300, is_seeded=True)
+        await db.coupon_templates.insert_one(welcome_tpl.model_dump())
+        # Wire it as the hotel welcome coupon by default
+        await db.hotels.update_one(
+            {"id": hotel_id, "welcome_coupon_template_id": None},
+            {"$set": {"welcome_coupon_template_id": welcome_tpl.id,
+                       "welcome_coupon_message": "Benvenuto al ChatHel Resort! Un caffè offerto dalla casa ☕"}},
+        )
         for t in [
-            CouponTemplate(hotel_id=hotel_id, name="Caffè espresso", description="Un caffè al bar dell'hotel.", emoji="☕", category="drink", price_cents=300, is_seeded=True),
             CouponTemplate(hotel_id=hotel_id, name="Spritz", description="Spritz Aperol al lounge.", emoji="🍹", category="drink", price_cents=800, is_seeded=True),
             CouponTemplate(hotel_id=hotel_id, name="Calice di vino", description="Vino della casa, bianco o rosso.", emoji="🍷", category="drink", price_cents=700, is_seeded=True),
             CouponTemplate(hotel_id=hotel_id, name="Cocktail signature", description="Cocktail della casa.", emoji="🍸", category="drink", price_cents=1200, is_seeded=True),

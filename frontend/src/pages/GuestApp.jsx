@@ -15,6 +15,7 @@ import PrivateChat from "./guest/PrivateChat";
 import ReceptionChat from "./guest/ReceptionChat";
 import AiChat from "./guest/AiChat";
 import ProfilePanel from "./guest/ProfilePanel";
+import StaysHistory from "./guest/StaysHistory";
 import CouponsPage from "./guest/CouponsPage";
 
 const TABS_DEF = [
@@ -119,6 +120,7 @@ export default function GuestApp() {
           <Route path="reception" element={<ReceptionChat me={me.guest} />} />
           <Route path="ai" element={<AiChat me={me.guest} />} />
           <Route path="profile" element={<ProfilePanel me={me.guest} onUpdated={(g)=>setMe({...me, guest:g})} />} />
+          <Route path="profile/history" element={<StaysHistory />} />
           <Route path="coupons" element={<CouponsPage me={me.guest} />} />
         </Routes>
       </main>

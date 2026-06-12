@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 4 end-to-end validation of the 3 new pieces: (a) Welcome Coupon on /api/stays/join, (b) Progressive Onboarding screen post-registration, (c) Stays History page. All 7 backend tests pass and full UI flow verified via Playwright. Welcome coupon 'Caffè espresso' is auto-delivered, toast renders with name+emoji, onboarding is skippable and gated by localStorage flag (does NOT re-appear after re-login), and /app/profile/history renders rows with hotel name, nickname, check-in date, and 'In corso' badge for the active stay.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration4.py",
+    "/app/test_reports/pytest/iteration4_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py stays_join: welcome coupon recipient_id is set to stay.id (a Stay id) — note this means the coupon CANNOT be listed via the existing /api/coupons/received endpoint (which is guest-token scoped and matches against guest.id). The welcome coupon is delivered correctly and visible via WebSocket broadcast + the join response, but there is no User-scoped GET endpoint to list coupons for the permanent user. Consider adding /api/coupons (User-auth) returning coupons where recipient_id == active stay.id. Not blocking the MVP since the toast + WS broadcast cover the immediate UX.",
+    "server.py (line ~739) stays_history uses {'$in': hotel_ids} async-for — fine, but for large hotel lists prefer .to_list().",
+    "StaysHistory.jsx is solid; the 'loading…' state (items===null) shows three dots which is good UX. data-testid='stay-row-{id}' on each row enables stable testing.",
+    "OnboardingProfile.jsx — clean implementation. Note: an empty 'Salva e continua' click with no photo and no bio acts as skip (calls onDone without PATCH). This is fine but consider showing a tiny hint.",
+    "GuestLogin.jsx — localStorage flag 'chathel_onboarding_pending' is set on register and cleared on onboarding completion/skip. Verified that re-login does NOT show onboarding even if stay is active (because refreshMe sees data.stay and navigates to /app before checking the flag). Edge case: if a user registers, closes browser BEFORE skipping onboarding, and clears localStorage, they will never see onboarding again. Acceptable for MVP.",
+    "File length: server.py is 1435 lines — exceeds 700-line guideline. Consider splitting routers (auth, stays, coupons, admin, messages) into modules."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (7/7 iteration4 tests, regression test_iteration2 + backend_test.py remain green from iter3)",
+    "frontend": "100% (registration → onboarding → skip → join → welcome coupon toast → /app/profile → history link → history rows → re-login no-onboarding all verified)"
+  },
+  "test_credentials": "Demo hotel code WELCOME2026 / admin password admin123 from /app/memory/test_credentials.md. For permanent-user flow use unique emails like e2e_<timestamp>@chathel.test with password 'test1234'.",
+  "seed_data_creation": "No new seed required — relies on bootstrap backfill of WELCOME2026 hotel's welcome_coupon_template_id to the seeded 'Caffè espresso' template. Verified via test_demo_hotel_has_welcome_template_via_join (asserts emoji ☕ + 'caff' in name).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter4 covers the welcome-coupon + onboarding + stays-history slice. To regression-test, run: pytest /app/backend/tests/test_iteration4.py -v. For UI, register with a fresh email at /login, you must see [data-testid='onboarding-screen'], then [data-testid='onboarding-skip-btn'] takes you to [data-testid='join-code-input']. After joining WELCOME2026, two toasts appear (welcome message + welcome coupon name). At /app/profile the [data-testid='profile-history-link'] card shows 'Sei stato in N hotel'; clicking it navigates to /app/profile/history which renders [data-testid='stay-row-{id}'] rows. Wait ~2-3s for /stays/history fetch to complete before asserting row count.",
+  "rca of the issue": "N/A — no defects found in this iteration."
+}

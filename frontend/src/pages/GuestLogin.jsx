@@ -7,12 +7,15 @@ import { ArrowLeft, LogIn, UserPlus, Hotel as HotelIcon, Camera } from "lucide-r
 import Logo from "../components/Logo";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import QRScanner from "../components/QRScanner";
+import OnboardingProfile from "../components/OnboardingProfile";
+
+const ONBOARDING_FLAG = "chathel_onboarding_pending";
 
 export default function AuthGate() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [phase, setPhase] = useState("login"); // login | register | join
+  const [phase, setPhase] = useState("login"); // login | register | onboarding | join
   const [loading, setLoading] = useState(false);
   const [me, setMe] = useState(null);
 
@@ -26,6 +29,7 @@ export default function AuthGate() {
         try {
           const { data } = await api.post("/auth/google/session", { session_id: m[1] });
           setUserToken(data.token);
+          if (data.is_new) localStorage.setItem(ONBOARDING_FLAG, "1");
           await refreshMe();
           toast.success(`Benvenuto, ${data.user.name}!`);
         } catch (e) { toast.error("Google login fallito"); }
@@ -39,7 +43,10 @@ export default function AuthGate() {
     try {
       const { data } = await api.get("/auth/me");
       setMe(data);
-      if (data.stay) navigate("/app");
+      if (data.stay) { navigate("/app"); return data; }
+      // If user has just registered and has no photo/bio yet, gate to onboarding once
+      const pending = localStorage.getItem(ONBOARDING_FLAG) === "1";
+      if (pending) setPhase("onboarding");
       else setPhase("join");
       return data;
     } catch {
@@ -47,10 +54,24 @@ export default function AuthGate() {
     }
   };
 
-  useEffect(() => { refreshMe(); }, []); // eslint-disable-line
+  useEffect(() => { refreshMe(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!me) return <LoginRegisterScreen phase={phase} setPhase={setPhase} onAuthed={refreshMe} loading={loading} setLoading={setLoading}/>;
-  return <JoinHotelScreen me={me} onJoined={() => navigate("/app")} onLogout={async () => { try { await api.post("/auth/logout"); } catch{}; clearUserToken(); setMe(null); setPhase("login"); }}/>;
+  if (phase === "onboarding") {
+    return (
+      <Shell>
+        <OnboardingProfile
+          me={me.user}
+          onDone={async () => {
+            localStorage.removeItem(ONBOARDING_FLAG);
+            try { const { data } = await api.get("/auth/me"); setMe(data); } catch { /* ignore */ }
+            setPhase("join");
+          }}
+        />
+      </Shell>
+    );
+  }
+  return <JoinHotelScreen me={me} onJoined={() => navigate("/app")} onLogout={async () => { try { await api.post("/auth/logout"); } catch { /* ignore */ } clearUserToken(); setMe(null); setPhase("login"); }}/>;
 }
 
 const Shell = ({ children }) => {
@@ -87,7 +108,12 @@ function LoginRegisterScreen({ phase, setPhase, onAuthed, loading, setLoading })
       const body = phase === "register" ? { email, password, name } : { email, password };
       const { data } = await api.post(path, body);
       setUserToken(data.token);
-      toast.success(phase === "register" ? "Account creato!" : `Bentornato, ${data.user.name}`);
+      if (phase === "register") {
+        localStorage.setItem(ONBOARDING_FLAG, "1");
+        toast.success("Account creato! Ora completa il profilo");
+      } else {
+        toast.success(`Bentornato, ${data.user.name}`);
+      }
       onAuthed();
     } catch (err) { toast.error(err?.response?.data?.detail || "Errore"); }
     finally { setLoading(false); }
@@ -158,6 +184,14 @@ function JoinHotelScreen({ me, onJoined, onLogout }) {
     try {
       const { data } = await api.post("/stays/join", { access_code: code.toUpperCase(), nickname });
       toast.success(`Benvenuto in ${data.hotel.name}!`);
+      if (data.welcome_coupon) {
+        setTimeout(() => {
+          toast.success(
+            `${data.welcome_coupon.emoji || "🎁"} Welcome coupon: ${data.welcome_coupon.name}`,
+            { description: data.welcome_coupon.message || "Un regalo di benvenuto dall'hotel" }
+          );
+        }, 350);
+      }
       onJoined();
     } catch (err) { toast.error(err?.response?.data?.detail || "Errore"); }
     finally { setLoading(false); }
@@ -187,7 +221,7 @@ function JoinHotelScreen({ me, onJoined, onLogout }) {
 
         <div className="brutal-card p-8">
           <div className="w-14 h-14 rounded-xl bg-sun border-2 border-ink shadow-brutal-sm flex items-center justify-center mb-5"><HotelIcon size={28} strokeWidth={2.5}/></div>
-          <h1 className="font-display text-4xl font-black tracking-tighter mb-2">Unisciti all'hotel.</h1>
+          <h1 className="font-display text-4xl font-black tracking-tighter mb-2">Unisciti all&apos;hotel.</h1>
           <p className="text-slate-700 mb-5">Inserisci il codice ricevuto dalla reception.</p>
 
           <button type="button" data-testid="open-qr-scanner-btn" onClick={() => setShowScanner(true)} className="btn-outline w-full inline-flex items-center justify-center gap-2 mb-5">
@@ -202,7 +236,7 @@ function JoinHotelScreen({ me, onJoined, onLogout }) {
             </button>
           </form>
 
-          <button onClick={onLogout} className="text-xs text-slate-500 hover:text-brand font-bold mt-5 underline">Esci dall'account</button>
+          <button onClick={onLogout} className="text-xs text-slate-500 hover:text-brand font-bold mt-5 underline">Esci dall&apos;account</button>
         </div>
 
         {showScanner && <QRScanner onResult={handleScan} onClose={() => setShowScanner(false)}/>}
