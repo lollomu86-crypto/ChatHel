@@ -8,9 +8,9 @@ import GuestLogin from "./pages/GuestLogin";
 import GuestApp from "./pages/GuestApp";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
-import { getGuestToken, getAdminToken } from "./lib/api";
+import { getGuestToken, getAdminToken, getUserToken } from "./lib/api";
 
-const GuestGuard = ({ children }) => (getGuestToken() ? children : <Navigate to="/login" replace />);
+const GuestGuard = ({ children }) => ((getGuestToken() || getUserToken()) ? children : <Navigate to="/login" replace />);
 const AdminGuard = ({ children }) => (getAdminToken() ? children : <Navigate to="/admin/login" replace />);
 
 export default function App() {

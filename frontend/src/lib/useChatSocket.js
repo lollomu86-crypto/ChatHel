@@ -19,7 +19,8 @@ export default function useChatSocket({ token, role = "guest", onEvent }) {
     const buildUrl = () => {
       const backend = process.env.REACT_APP_BACKEND_URL || "";
       const wsUrl = backend.replace(/^http/i, "ws");
-      return `${wsUrl}/api/ws?token=${encodeURIComponent(token)}&role=${role}`;
+      const useRole = role === "admin" ? "admin" : "guest";
+      return `${wsUrl}/api/ws?token=${encodeURIComponent(token)}&role=${useRole}`;
     };
 
     const connect = () => {

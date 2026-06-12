@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api, getGuestToken } from "../../lib/api";
+import { api, getGuestToken, getUserToken } from "../../lib/api";
 import useChatSocket from "../../lib/useChatSocket";
 import { Gift, Sparkles, Check, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -144,7 +144,7 @@ export default function CouponsPage({ me }) {
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, []);
 
   useChatSocket({
-    token: getGuestToken(),
+    token: getGuestToken() || getUserToken(),
     onEvent: (ev) => { if (ev.type === "coupon_received" || ev.type === "coupon_updated") load(); },
   });
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { api, getGuestToken } from "../../lib/api";
+import { api, getGuestToken, getUserToken } from "../../lib/api";
 import useChatSocket from "../../lib/useChatSocket";
 import { ChatView, ChatComposer } from "./PublicChat";
 import { ArrowLeft } from "lucide-react";
@@ -21,7 +21,7 @@ export default function PrivateChat({ me }) {
   useEffect(() => { load(); const t = setInterval(load, 20000); return () => clearInterval(t); }, [id]);
 
   useChatSocket({
-    token: getGuestToken(),
+    token: getGuestToken() || getUserToken(),
     onEvent: (ev) => {
       if (ev.type !== "message" || ev.message?.channel !== "private") return;
       const m = ev.message;

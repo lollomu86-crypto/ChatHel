@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api, getGuestToken } from "../../lib/api";
+import { api, getGuestToken, getUserToken } from "../../lib/api";
 import useChatSocket from "../../lib/useChatSocket";
 import { ChatView, ChatComposer } from "./PublicChat";
 import { toast } from "sonner";
@@ -13,7 +13,7 @@ export default function AiChat({ me }) {
   useEffect(() => { load(); const t = setInterval(load, 20000); return () => clearInterval(t); }, []);
 
   useChatSocket({
-    token: getGuestToken(),
+    token: getGuestToken() || getUserToken(),
     onEvent: (ev) => {
       if (ev.type !== "message" || ev.message?.channel !== "ai") return;
       const m = ev.message;

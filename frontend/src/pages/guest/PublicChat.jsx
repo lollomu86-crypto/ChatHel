@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { api, getGuestToken } from "../../lib/api";
+import { api, getGuestToken, getUserToken } from "../../lib/api";
 import useChatSocket from "../../lib/useChatSocket";
 import { useTranslation } from "react-i18next";
 import { Send, Trophy, Check, Languages } from "lucide-react";
@@ -145,7 +145,7 @@ export default function PublicChat({ me }) {
   useEffect(() => { fetchMsgs(); const id = setInterval(fetchMsgs, 20000); return () => clearInterval(id); }, []);
 
   useChatSocket({
-    token: getGuestToken(),
+    token: getGuestToken() || getUserToken(),
     onEvent: (ev) => {
       if (ev.type === "message" && ev.message?.channel === "public") {
         setMsgs((prev) => prev.some((m) => m.id === ev.message.id) ? prev : [...prev, ev.message]);

@@ -15,6 +15,10 @@ from pywebpush import webpush, WebPushException
 from py_vapid import Vapid
 import base64
 import json as _json
+import bcrypt
+import secrets
+import httpx
+from datetime import timedelta
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -44,6 +48,36 @@ class Hotel(BaseModel):
     admin_password: str
     ai_prompt: str = "You are a friendly hotel reception assistant. Answer guest questions about the hotel services, hours, amenities, and local recommendations."
     created_at: str = Field(default_factory=now_iso)
+
+
+# ===== Permanent users & stays =====
+class User(BaseModel):
+    user_id: str = Field(default_factory=lambda: f"user_{uuid.uuid4().hex[:12]}")
+    email: str
+    name: str
+    password_hash: Optional[str] = None  # absent if Google-only
+    photo_url: Optional[str] = None
+    bio: str = ""
+    auth_provider: Literal["email", "google", "both"] = "email"
+    created_at: str = Field(default_factory=now_iso)
+
+
+class UserSession(BaseModel):
+    session_token: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
+    user_id: str
+    expires_at: str  # ISO datetime
+    created_at: str = Field(default_factory=now_iso)
+
+
+class Stay(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    hotel_id: str
+    nickname: str  # display name within the hotel (defaults to user.name)
+    status_text: str = ""
+    active: bool = True
+    joined_at: str = Field(default_factory=now_iso)
+    left_at: Optional[str] = None
 
 
 class Guest(BaseModel):
@@ -143,6 +177,32 @@ class GuestLoginReq(BaseModel):
     nickname: str
 
 
+class RegisterReq(BaseModel):
+    email: str
+    password: str
+    name: str
+
+
+class EmailLoginReq(BaseModel):
+    email: str
+    password: str
+
+
+class GoogleSessionReq(BaseModel):
+    session_id: str
+
+
+class ProfileUpdateReq(BaseModel):
+    name: Optional[str] = None
+    photo_url: Optional[str] = None
+    bio: Optional[str] = None
+
+
+class JoinStayReq(BaseModel):
+    access_code: str
+    nickname: Optional[str] = None
+
+
 class AdminLoginReq(BaseModel):
     access_code: str
     password: str
@@ -211,14 +271,92 @@ class PushSubReq(BaseModel):
 
 
 # ===== Auth deps =====
-async def get_current_guest(x_guest_token: Optional[str] = Header(None)) -> Guest:
-    if not x_guest_token:
-        raise HTTPException(401, "Missing token")
-    doc = await db.guests.find_one({"session_token": x_guest_token, "active": True}, {"_id": 0})
-    if not doc:
+SESSION_TTL_DAYS = 30
+
+
+def hash_password(p: str) -> str:
+    return bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_password(p: str, h: str) -> bool:
+    try: return bcrypt.checkpw(p.encode(), h.encode())
+    except Exception: return False
+
+
+async def create_session(user_id: str) -> str:
+    sess = UserSession(
+        user_id=user_id,
+        expires_at=(datetime.now(timezone.utc) + timedelta(days=SESSION_TTL_DAYS)).isoformat(),
+    )
+    await db.user_sessions.insert_one(sess.model_dump())
+    return sess.session_token
+
+
+async def get_current_user(authorization: Optional[str] = Header(None), x_user_token: Optional[str] = Header(None)) -> User:
+    token = x_user_token
+    if not token and authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(None, 1)[1].strip()
+    if not token:
+        raise HTTPException(401, "Missing user token")
+    sess = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
+    if not sess:
         raise HTTPException(401, "Invalid session")
-    await db.guests.update_one({"id": doc["id"]}, {"$set": {"last_seen": now_iso()}})
-    return Guest(**doc)
+    exp = sess["expires_at"]
+    try:
+        exp_dt = datetime.fromisoformat(exp)
+        if exp_dt.tzinfo is None: exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+        if exp_dt < datetime.now(timezone.utc):
+            raise HTTPException(401, "Session expired")
+    except HTTPException: raise
+    except Exception: pass
+    user_doc = await db.users.find_one({"user_id": sess["user_id"]}, {"_id": 0})
+    if not user_doc:
+        raise HTTPException(401, "User not found")
+    return User(**user_doc)
+
+
+async def get_current_guest(
+    x_guest_token: Optional[str] = Header(None),
+    x_user_token: Optional[str] = Header(None),
+    authorization: Optional[str] = Header(None),
+) -> Guest:
+    """Resolve the current guest from either a legacy guest token or a user+stay.
+    The returned Guest is synthesised so existing endpoints keep working.
+    """
+    # Legacy path: a transient guest session
+    if x_guest_token:
+        doc = await db.guests.find_one({"session_token": x_guest_token, "active": True}, {"_id": 0})
+        if doc:
+            await db.guests.update_one({"id": doc["id"]}, {"$set": {"last_seen": now_iso()}})
+            return Guest(**doc)
+
+    # New path: user session + active stay
+    token = x_user_token
+    if not token and authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(None, 1)[1].strip()
+    if not token:
+        raise HTTPException(401, "Missing token")
+    sess = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
+    if not sess:
+        raise HTTPException(401, "Invalid session")
+    stay = await db.stays.find_one({"user_id": sess["user_id"], "active": True}, {"_id": 0})
+    if not stay:
+        raise HTTPException(403, "Non sei in un hotel. Unisciti con il codice.")
+    user_doc = await db.users.find_one({"user_id": sess["user_id"]}, {"_id": 0})
+    if not user_doc:
+        raise HTTPException(401, "User not found")
+    # Synthesise a Guest from stay + user (id = stay.id stays stable per visit)
+    return Guest(
+        id=stay["id"],
+        hotel_id=stay["hotel_id"],
+        nickname=stay.get("nickname") or user_doc["name"],
+        session_token=token,
+        status_text=stay.get("status_text", ""),
+        avatar_seed=(user_doc.get("photo_url") or "")[:80],
+        active=True,
+        checked_in_at=stay["joined_at"],
+        last_seen=now_iso(),
+    )
 
 
 async def get_current_admin(x_admin_token: Optional[str] = Header(None)) -> Hotel:
@@ -460,6 +598,125 @@ async def root():
     return {"app": "ChatHel API", "status": "ok"}
 
 
+# --- Auth (permanent users) ---
+EMERGENT_AUTH_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
+BIO_MAX_LEN = 160
+
+
+@api_router.post("/auth/register")
+async def auth_register(req: RegisterReq):
+    email = req.email.strip().lower()
+    if "@" not in email or len(req.password) < 6 or len(req.name.strip()) < 2:
+        raise HTTPException(400, "Email, password (min 6) o nome non validi")
+    existing = await db.users.find_one({"email": email}, {"_id": 0})
+    if existing:
+        raise HTTPException(409, "Email già registrata")
+    user = User(email=email, name=req.name.strip(), password_hash=hash_password(req.password), auth_provider="email")
+    await db.users.insert_one(user.model_dump())
+    token = await create_session(user.user_id)
+    return {"token": token, "user": user.model_dump(exclude={"password_hash"})}
+
+
+@api_router.post("/auth/login")
+async def auth_login(req: EmailLoginReq):
+    email = req.email.strip().lower()
+    user_doc = await db.users.find_one({"email": email}, {"_id": 0})
+    if not user_doc or not user_doc.get("password_hash") or not verify_password(req.password, user_doc["password_hash"]):
+        raise HTTPException(401, "Credenziali non valide")
+    token = await create_session(user_doc["user_id"])
+    u = User(**user_doc).model_dump(exclude={"password_hash"})
+    return {"token": token, "user": u}
+
+
+@api_router.post("/auth/google/session")
+async def auth_google_session(req: GoogleSessionReq):
+    # REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+    async with httpx.AsyncClient(timeout=15) as client:
+        try:
+            resp = await client.get(EMERGENT_AUTH_URL, headers={"X-Session-ID": req.session_id})
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            raise HTTPException(401, f"Google auth fallita: {type(e).__name__}")
+    email = (data.get("email") or "").lower()
+    name = data.get("name") or email.split("@")[0]
+    picture = data.get("picture")
+    existing = await db.users.find_one({"email": email}, {"_id": 0})
+    if existing:
+        await db.users.update_one({"user_id": existing["user_id"]}, {"$set": {
+            "photo_url": existing.get("photo_url") or picture,
+            "auth_provider": "both" if existing.get("password_hash") else "google",
+        }})
+        user_id = existing["user_id"]
+    else:
+        user = User(email=email, name=name, photo_url=picture, auth_provider="google")
+        await db.users.insert_one(user.model_dump())
+        user_id = user.user_id
+    token = await create_session(user_id)
+    udoc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    return {"token": token, "user": User(**udoc).model_dump(exclude={"password_hash"})}
+
+
+@api_router.get("/auth/me")
+async def auth_me(user: User = Depends(get_current_user)):
+    udoc = user.model_dump(exclude={"password_hash"})
+    stay = await db.stays.find_one({"user_id": user.user_id, "active": True}, {"_id": 0})
+    hotel = None
+    if stay:
+        h = await db.hotels.find_one({"id": stay["hotel_id"]}, {"_id": 0})
+        if h: hotel = {"id": h["id"], "name": h["name"]}
+    return {"user": udoc, "stay": stay, "hotel": hotel}
+
+
+@api_router.post("/auth/logout")
+async def auth_logout(authorization: Optional[str] = Header(None), x_user_token: Optional[str] = Header(None)):
+    token = x_user_token or (authorization.split(None, 1)[1].strip() if authorization and authorization.lower().startswith("bearer ") else None)
+    if token:
+        await db.user_sessions.delete_one({"session_token": token})
+    return {"ok": True}
+
+
+@api_router.patch("/auth/profile")
+async def auth_update_profile(req: ProfileUpdateReq, user: User = Depends(get_current_user)):
+    upd = {}
+    if req.name is not None and len(req.name.strip()) >= 2: upd["name"] = req.name.strip()[:60]
+    if req.photo_url is not None: upd["photo_url"] = req.photo_url.strip()[:500] or None
+    if req.bio is not None: upd["bio"] = req.bio.strip()[:BIO_MAX_LEN]
+    if upd:
+        await db.users.update_one({"user_id": user.user_id}, {"$set": upd})
+    udoc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0})
+    # If nickname inside active stay was the old name, refresh
+    stay = await db.stays.find_one({"user_id": user.user_id, "active": True}, {"_id": 0})
+    if stay and "name" in upd:
+        await db.stays.update_one({"id": stay["id"]}, {"$set": {"nickname": upd["name"]}})
+    return User(**udoc).model_dump(exclude={"password_hash"})
+
+
+# --- Stays (joining a hotel) ---
+@api_router.post("/stays/join")
+async def stays_join(req: JoinStayReq, user: User = Depends(get_current_user)):
+    code = (req.access_code or "").strip().upper()
+    hotel = await db.hotels.find_one({"access_code": code}, {"_id": 0})
+    if not hotel:
+        raise HTTPException(404, "Codice hotel non valido")
+    # Close any previous active stay
+    await db.stays.update_many({"user_id": user.user_id, "active": True}, {"$set": {"active": False, "left_at": now_iso()}})
+    nickname = (req.nickname or user.name).strip()[:30]
+    # Ensure unique nickname per hotel among active stays
+    existing = await db.stays.find_one({"hotel_id": hotel["id"], "nickname": nickname, "active": True}, {"_id": 0})
+    if existing:
+        nickname = f"{nickname} · {user.user_id[-4:].upper()}"
+    stay = Stay(user_id=user.user_id, hotel_id=hotel["id"], nickname=nickname)
+    await db.stays.insert_one(stay.model_dump())
+    return {"stay": stay.model_dump(), "hotel": {"id": hotel["id"], "name": hotel["name"]}}
+
+
+@api_router.post("/stays/leave")
+async def stays_leave(user: User = Depends(get_current_user)):
+    await db.stays.update_many({"user_id": user.user_id, "active": True}, {"$set": {"active": False, "left_at": now_iso()}})
+    return {"ok": True}
+
+
 # --- Guest auth ---
 @api_router.post("/guest/login")
 async def guest_login(req: GuestLoginReq):
@@ -498,8 +755,29 @@ async def update_status(req: StatusUpdateReq, guest: Guest = Depends(get_current
 
 @api_router.get("/guests")
 async def list_guests(guest: Guest = Depends(get_current_guest)):
-    docs = await db.guests.find({"hotel_id": guest.hotel_id, "active": True}, {"_id": 0, "session_token": 0}).to_list(500)
-    return docs
+    legacy = await db.guests.find({"hotel_id": guest.hotel_id, "active": True}, {"_id": 0, "session_token": 0}).to_list(500)
+    stay_docs = await db.stays.find({"hotel_id": guest.hotel_id, "active": True}, {"_id": 0}).to_list(500)
+    out = list(legacy)
+    user_ids = [s["user_id"] for s in stay_docs]
+    users_map = {}
+    if user_ids:
+        async for u in db.users.find({"user_id": {"$in": user_ids}}, {"_id": 0, "password_hash": 0}):
+            users_map[u["user_id"]] = u
+    for s in stay_docs:
+        u = users_map.get(s["user_id"], {})
+        out.append({
+            "id": s["id"],
+            "hotel_id": s["hotel_id"],
+            "nickname": s.get("nickname") or u.get("name", "Ospite"),
+            "status_text": s.get("status_text", ""),
+            "avatar_seed": (u.get("photo_url") or s["id"])[:80],
+            "active": True,
+            "checked_in_at": s["joined_at"],
+            "last_seen": now_iso(),
+            "photo_url": u.get("photo_url"),
+            "bio": u.get("bio", ""),
+        })
+    return out
 
 
 # --- Push notifications (Web Push / VAPID) ---
@@ -1058,11 +1336,20 @@ async def ws_endpoint(ws: WebSocket, token: Optional[str] = None, role: str = "g
         admin = True
         await manager.connect_admin(hotel_id, ws)
     else:
+        # Try legacy guest token first
         g = await db.guests.find_one({"session_token": token, "active": True}, {"_id": 0})
-        if not g:
-            await ws.send_json({"type": "error", "detail": "Invalid guest token"})
-            await ws.close(code=1008); return
-        guest_id = g["id"]; hotel_id = g["hotel_id"]
+        if g:
+            guest_id = g["id"]; hotel_id = g["hotel_id"]
+        else:
+            # Try user session + active stay
+            sess = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
+            stay = None
+            if sess:
+                stay = await db.stays.find_one({"user_id": sess["user_id"], "active": True}, {"_id": 0})
+            if not (sess and stay):
+                await ws.send_json({"type": "error", "detail": "Invalid token"})
+                await ws.close(code=1008); return
+            guest_id = stay["id"]; hotel_id = stay["hotel_id"]
         await manager.connect_guest(guest_id, hotel_id, ws)
 
     await ws.send_json({"type": "ready", "role": "admin" if admin else "guest"})

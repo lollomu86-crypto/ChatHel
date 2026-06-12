@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Routes, Route, NavLink, useNavigate, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { api, clearGuestToken } from "../lib/api";
+import { api, clearGuestToken, getGuestToken, clearUserToken, getUserToken } from "../lib/api";
 import { MessageSquare, CalendarHeart, Users, Sparkles, Hotel, LogOut, User, Gift } from "lucide-react";
 import { toast } from "sonner";
 import Logo from "../components/Logo";
@@ -33,19 +33,46 @@ export default function GuestApp() {
 
   useEffect(() => {
     let mounted = true;
-    api.get("/guest/me").then(({ data }) => {
-      if (!mounted) return;
-      setMe(data);
-      setLoading(false);
-    }).catch(() => {
-      clearGuestToken();
+    const load = async () => {
+      // Legacy guest token path
+      if (getGuestToken()) {
+        try {
+          const { data } = await api.get("/guest/me");
+          if (mounted) { setMe(data); setLoading(false); }
+          return;
+        } catch { clearGuestToken(); }
+      }
+      // User+stay path
+      if (getUserToken()) {
+        try {
+          const { data } = await api.get("/auth/me");
+          if (!data.stay) { navigate("/login", { replace: true }); return; }
+          if (mounted) {
+            setMe({
+              guest: { id: data.stay.id, nickname: data.stay.nickname, status_text: data.stay.status_text, checked_in_at: data.stay.joined_at, photo_url: data.user.photo_url, bio: data.user.bio },
+              hotel: data.hotel,
+              user: data.user,
+            });
+            setLoading(false);
+          }
+          return;
+        } catch { clearUserToken(); }
+      }
       navigate("/login", { replace: true });
-    });
+    };
+    load();
     return () => { mounted = false; };
   }, [navigate]);
 
   const logout = async () => {
-    try { await api.post("/guest/logout"); } catch (e) { console.debug("[chathel] ignored", e); }
+    // For user-based auth: leave the hotel (keeps account); legacy: full logout
+    if (getUserToken()) {
+      try { await api.post("/stays/leave"); } catch { /* ignore */ }
+      toast.success("Hai lasciato l'hotel");
+      navigate("/login", { replace: true });
+      return;
+    }
+    try { await api.post("/guest/logout"); } catch { /* ignore */ }
     clearGuestToken();
     localStorage.removeItem("chathel_guest");
     localStorage.removeItem("chathel_hotel");
