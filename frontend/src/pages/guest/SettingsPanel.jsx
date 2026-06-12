@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, clearUserToken, getUserToken } from "../../lib/api";
 import { toast } from "sonner";
-import { ArrowLeft, Bell, BellOff, Download, KeyRound, Trash2, UserCog, Camera, Save, LogOut } from "lucide-react";
+import { ArrowLeft, Bell, BellOff, Download, KeyRound, Trash2, UserCog, Camera, Save, LogOut, Smartphone, X, ArrowUp } from "lucide-react";
 import {
   isPushSupported,
   getPushPermission,
@@ -65,6 +65,13 @@ export default function SettingsPanel({ me }) {
 function InstallCard() {
   const [deferred, setDeferred] = useState(null);
   const [installed, setInstalled] = useState(false);
+  const [showIosGuide, setShowIosGuide] = useState(false);
+
+  // Detect iOS (iPhone/iPad/iPod) — Safari does not fire beforeinstallprompt
+  const isIos = typeof navigator !== "undefined" &&
+    /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const isSafari = typeof navigator !== "undefined" &&
+    /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
 
   useEffect(() => {
     const onBefore = (e) => { e.preventDefault(); setDeferred(e); };
@@ -96,6 +103,22 @@ function InstallCard() {
         <button data-testid="pwa-install-btn" onClick={install} className="btn-primary inline-flex items-center gap-2">
           <Download size={16}/> Installa ora
         </button>
+      ) : isIos ? (
+        <>
+          <button
+            data-testid="pwa-ios-guide-btn"
+            onClick={() => setShowIosGuide(true)}
+            className="btn-primary inline-flex items-center gap-2"
+          >
+            <Smartphone size={16}/> Mostra istruzioni iPhone
+          </button>
+          {!isSafari && (
+            <p className="text-xs text-slate-600 mt-3" data-testid="pwa-ios-not-safari">
+              ⚠️ Su iPhone l&apos;installazione funziona <span className="font-bold">solo con Safari</span>. Apri questa pagina in Safari per continuare.
+            </p>
+          )}
+          {showIosGuide && <IosInstallGuide onClose={() => setShowIosGuide(false)} isSafari={isSafari}/>}
+        </>
       ) : (
         <p className="text-sm text-slate-700" data-testid="pwa-unavailable">
           Sul tuo dispositivo apri il menu del browser → <span className="font-bold">&quot;Aggiungi alla schermata Home&quot;</span>.
@@ -104,6 +127,54 @@ function InstallCard() {
     </Section>
   );
 }
+
+/* iOS step-by-step modal */
+function IosInstallGuide({ onClose, isSafari }) {
+  return (
+    <div className="fixed inset-0 bg-ink/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose} data-testid="ios-install-guide">
+      <div className="bg-cream border-t-2 sm:border-2 border-ink shadow-brutal w-full sm:max-w-md sm:rounded-2xl p-6 max-h-[92vh] overflow-y-auto" onClick={(e)=>e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">iPhone · iPad</p>
+            <h3 className="font-display text-2xl font-black tracking-tight">Installa ChatHel</h3>
+          </div>
+          <button data-testid="ios-guide-close" onClick={onClose} className="text-slate-500 hover:text-brand"><X size={20}/></button>
+        </div>
+        {!isSafari && (
+          <div className="brutal-card p-3 bg-bubbleSelf mb-4 text-sm">
+            ⚠️ Apri questa pagina con <span className="font-bold">Safari</span> (l&apos;icona della bussola). Altri browser non possono installare PWA su iOS.
+          </div>
+        )}
+        <ol className="space-y-4 mt-3">
+          <IosStep n={1} title="Tocca il pulsante Condividi">
+            In basso al centro su Safari (in alto a destra su iPad). È l&apos;icona del quadrato con la freccia <ArrowUp size={14} className="inline -mt-0.5"/> rivolta verso l&apos;alto.
+          </IosStep>
+          <IosStep n={2} title={'Scegli "Aggiungi alla schermata Home"'}>
+            Scorri in basso nel menu di condivisione. L&apos;icona è un quadrato con un <span className="font-bold">+</span> al centro.
+          </IosStep>
+          <IosStep n={3} title="Conferma con Aggiungi">
+            In alto a destra. ChatHel apparirà sulla home come un&apos;app vera, con il logo dell&apos;hotel e schermo pieno.
+          </IosStep>
+        </ol>
+        <div className="mt-6 brutal-card p-3 bg-sun text-xs">
+          <p className="font-bold">💡 Suggerimento</p>
+          <p className="mt-1 text-slate-700">Dopo l&apos;installazione potrai aprire ChatHel anche offline (i tuoi messaggi precedenti restano disponibili).</p>
+        </div>
+        <button data-testid="ios-guide-done" onClick={onClose} className="btn-primary w-full mt-5">Ho capito</button>
+      </div>
+    </div>
+  );
+}
+
+const IosStep = ({ n, title, children }) => (
+  <li className="flex items-start gap-3">
+    <span className="w-8 h-8 shrink-0 rounded-full bg-ink text-cream font-display font-black text-base flex items-center justify-center shadow-brutal-sm">{n}</span>
+    <div className="min-w-0">
+      <p className="font-bold text-sm">{title}</p>
+      <p className="text-xs text-slate-700 mt-0.5">{children}</p>
+    </div>
+  </li>
+);
 
 /* ────────── Notifiche push ────────── */
 function NotificationsCard() {
