@@ -720,7 +720,12 @@ async def auth_me(user: User = Depends(get_current_user)):
     hotel = None
     if stay:
         h = await db.hotels.find_one({"id": stay["hotel_id"]}, {"_id": 0})
-        if h: hotel = {"id": h["id"], "name": h["name"]}
+        if h: hotel = {
+            "id": h["id"], "name": h["name"],
+            "logo_url": h.get("logo_url"),
+            "brand_color": h.get("brand_color"),
+            "default_language": h.get("default_language", "it"),
+        }
     return {"user": udoc, "stay": stay, "hotel": hotel}
 
 
@@ -870,7 +875,17 @@ async def guest_logout(guest: Guest = Depends(get_current_guest)):
 @api_router.get("/guest/me")
 async def guest_me(guest: Guest = Depends(get_current_guest)):
     hotel = await db.hotels.find_one({"id": guest.hotel_id}, {"_id": 0})
-    return {"guest": guest.model_dump(), "hotel": {"id": hotel["id"], "name": hotel["name"]} if hotel else None}
+    hotel_out = None
+    if hotel:
+        hotel_out = {
+            "id": hotel["id"],
+            "name": hotel["name"],
+            "logo_url": hotel.get("logo_url"),
+            "brand_color": hotel.get("brand_color"),
+            "default_language": hotel.get("default_language", "it"),
+            "welcome_coupon_template_id": hotel.get("welcome_coupon_template_id"),
+        }
+    return {"guest": guest.model_dump(), "hotel": hotel_out}
 
 
 @api_router.post("/guest/status")
@@ -913,15 +928,25 @@ async def push_vapid_pub():
 
 
 @api_router.post("/push/subscribe")
-async def push_subscribe(req: PushSubReq, guest: Guest = Depends(get_current_guest)):
+async def push_subscribe(req: PushSubReq, guest: Guest = Depends(get_current_guest),
+                          x_user_token: Optional[str] = Header(None),
+                          authorization: Optional[str] = Header(None)):
     sub = req.subscription or {}
     endpoint = sub.get("endpoint")
     if not endpoint:
         raise HTTPException(400, "Invalid subscription")
+    # Also persist user_id when available (so soft-delete can purge subs)
+    user_id = None
+    token = x_user_token or (authorization.split(None, 1)[1].strip() if authorization and authorization.lower().startswith("bearer ") else None)
+    if token:
+        sess = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
+        if sess:
+            user_id = sess["user_id"]
     doc = {
         "endpoint": endpoint,
         "guest_id": guest.id,
         "hotel_id": guest.hotel_id,
+        "user_id": user_id,
         "subscription": sub,
         "created_at": now_iso(),
     }

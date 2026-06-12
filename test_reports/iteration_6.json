@@ -1,0 +1,37 @@
+{
+  "summary": "Iteration 6 — hotel branding plumbed end-to-end. 8/8 backend tests pass; full UI flow validated. /api/auth/me + /api/guest/me return hotel.logo_url/brand_color/default_language; /api/push/subscribe with Bearer persists user_id (verified via direct Mongo read) and /auth/delete-account clears push_subs; legacy /guest/login + push/subscribe + push/test still respond 200; /stays/join still delivers welcome coupon. Frontend: hotel-logo testid renders with correct src, header border-bottom-color and hotel name color set to #0EA5E9 inline, service worker is registered with active controller, push-denied + pwa-unavailable fallback testids render correctly in headless mode. Admin demo state restored at end (brand_color=null, logo_url=null, admin_password=admin123, welcome_coupon_template_id unchanged).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration6.py",
+    "/app/test_reports/pytest/iteration6_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now 1662 lines — past the 700-line guideline. Still recommend splitting into modules (auth, stays, admin, coupons, messages, push, branding). Carried over from iter-5.",
+    "POST /api/admin/change-password still compares hotel.admin_password in PLAIN TEXT. Carried over from iter-5.",
+    "/api/push/subscribe relies on get_current_guest, which means a Bearer-token user MUST have an active stay or it will 403. This is correct for production flow (you only subscribe inside the app) but worth keeping in mind: subscribing before joining a hotel will fail.",
+    "Branding lives on the hotel doc only — there is no per-user/per-stay override. For multi-hotel users this means colour/logo flip on each /auth/me. Currently fine for the MVP.",
+    "GuestApp.jsx applies brand_color as inline style and via document.documentElement CSS var — the cleanup useEffect removes the var on unmount, but the meta[name='theme-color'] is never reset to the default if the user switches hotels with no brand colour. Minor UX nit."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration6.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (8/8)",
+    "frontend": "100% (hotel-logo + brand_color + service worker + push-denied + pwa-unavailable all verified)"
+  },
+  "test_credentials": "Admin: access_code=WELCOME2026, password=admin123 (verified restored at end). Test users registered ad-hoc as vis_<ts>@chathel.test / abc12345; one was soft-deleted by the push+soft-delete test, others remain joined but harmless.",
+  "seed_data_creation": "None permanent. The welcome-coupon regression test creates a TEST_WC_iter6 coupon template, sets it as welcome template, joins, then restores the previous welcome_coupon_template_id and deletes the template in finally{}.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run with: REACT_APP_BACKEND_URL=https://hotel-gather.preview.emergentagent.com MONGO_URL=mongodb://localhost:27017 DB_NAME=test_database pytest /app/backend/tests/test_iteration6.py -v. The test session autouse fixture PATCHes hotel branding (brand_color=#0EA5E9, logo_url=https://placehold.co/...) and restores it to empty at session teardown — do not assert on branding being null mid-run. Direct Mongo (pymongo) is used to verify push_subs persistence. /api/admin/me returns {hotel:{...}} wrapper; PATCH /api/admin/hotel returns the flat hotel dict. brand_color validation requires '#' prefix or empty string. /api/push/subscribe requires either X-Guest-Token (legacy) OR Bearer token + active stay (new flow). UI: hotel-logo and brand color verified at /app; push-denied + pwa-unavailable verified at /app/settings (these are the only testids visible in headless mode).",
+  "rca of the issue": "N/A — no defects found in this iteration."
+}

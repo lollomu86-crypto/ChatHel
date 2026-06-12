@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import Logo from "../components/Logo";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import PushPrompt from "../components/PushPrompt";
+import { registerServiceWorker } from "../lib/push";
 
 import HomeFeed from "./guest/HomeFeed";
 import PublicChat from "./guest/PublicChat";
@@ -32,6 +33,20 @@ export default function GuestApp() {
   const navigate = useNavigate();
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Register the service worker once, on app boot
+  useEffect(() => { registerServiceWorker(); }, []);
+
+  // Apply hotel brand color as CSS variable + meta theme-color
+  useEffect(() => {
+    const bc = me?.hotel?.brand_color;
+    if (bc) {
+      document.documentElement.style.setProperty("--brand-hotel", bc);
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", bc);
+    }
+    return () => { document.documentElement.style.removeProperty("--brand-hotel"); };
+  }, [me?.hotel?.brand_color]);
 
   useEffect(() => {
     let mounted = true;
@@ -88,12 +103,22 @@ export default function GuestApp() {
   return (
     <div className="min-h-screen bg-chatcanvas flex flex-col">
       {/* Top header */}
-      <header className="bg-cream/85 backdrop-blur-xl border-b-2 border-ink sticky top-0 z-30">
+      <header className="bg-cream/85 backdrop-blur-xl border-b-2 border-ink sticky top-0 z-30" style={me.hotel?.brand_color ? { borderBottomColor: me.hotel.brand_color } : undefined}>
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Logo size={40}/>
+            {me.hotel?.logo_url ? (
+              <img
+                src={me.hotel.logo_url}
+                alt={me.hotel.name}
+                data-testid="hotel-logo"
+                className="w-10 h-10 rounded-xl border-2 border-ink shadow-brutal-sm object-contain bg-white p-0.5"
+                onError={(e) => { e.currentTarget.style.display = "none"; }}
+              />
+            ) : (
+              <Logo size={40}/>
+            )}
             <div className="leading-tight">
-              <p className="font-display font-black tracking-tight text-base">{me.hotel?.name || "ChatHel"}</p>
+              <p className="font-display font-black tracking-tight text-base" style={me.hotel?.brand_color ? { color: me.hotel.brand_color } : undefined}>{me.hotel?.name || "ChatHel"}</p>
               <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-500">{t("header.guest_prefix")} · {me.guest.nickname}</p>
             </div>
           </div>
