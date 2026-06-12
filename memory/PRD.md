@@ -46,3 +46,17 @@ ChatHel: piattaforma chiusa per ospiti di hotel. Accesso via QR/codice + nicknam
 2. Stripe real payment
 3. Local-partner bundles
 4. iOS PWA install banner (Add to Home Screen)
+
+## Feature update — 2026-02-12 — Welcome Coupon + Onboarding + Stays History
+
+- **Welcome Coupon (auto)**: `/api/stays/join` now auto-emits a coupon when the hotel has `welcome_coupon_template_id`. Demo hotel `WELCOME2026` backfilled to "Caffè espresso ☕". Response includes `welcome_coupon` so the frontend toasts the gift name. Broadcast via WebSocket + push reaches `/app/coupons`.
+- **Progressive Onboarding** (skippable): new component `OnboardingProfile.jsx` triggered after first email register (localStorage flag `chathel_onboarding_pending`). Captures photo URL + bio via `PATCH /auth/profile`. Google sign-in returns `is_new=true` to drive the same gate.
+- **Stays History page**: `GET /api/stays/history` (joined with hotel names). New route `/app/profile/history` with `StaysHistory.jsx`. Teaser card on `/app/profile` shows "Sei stato in N hotel" linking to the page.
+
+### Verified
+- 7/7 backend tests passing (iteration_4.json), frontend E2E verified via Playwright by testing agent.
+
+### Deferred (P1 backlog)
+- Add a User-auth `/api/coupons` endpoint to list coupons by `recipient_id = stay.id` for historical lookup.
+- Real image upload via object storage to replace photo URL string (today: any public URL or pravatar suggestion).
+- Real Stripe payments for paid coupons (currently mock).
