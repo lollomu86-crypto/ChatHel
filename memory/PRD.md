@@ -87,3 +87,11 @@ ChatHel: piattaforma chiusa per ospiti di hotel. Accesso via QR/codice + nicknam
 - server.py at 1635 lines — refactor into modules after next major feature.
 - admin_password still plaintext in Hotel doc (pre-existing). Should bcrypt before any production launch.
 - Admin uses `X-Admin-Token` while users use `Authorization: Bearer` — works fine but worth unifying later.
+
+## Feature update — 2026-02-12 — Branding + PWA + Push wiring (iter-6)
+- Service worker now registered at app boot inside GuestApp (was only registered on PushPrompt mount).
+- /api/auth/me and /api/guest/me return hotel.logo_url / brand_color / default_language.
+- Guest header renders the hotel logo when set and tints the hotel name + bottom border with brand_color.
+- push_subscribe persists user_id (lets soft-delete clear stale subs).
+- meta theme-color resets to ChatHel default when hotel has no brand color.
+- testing_agent_v3 iter-6 → 8/8 backend + full UI verification.

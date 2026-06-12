@@ -39,11 +39,13 @@ export default function GuestApp() {
 
   // Apply hotel brand color as CSS variable + meta theme-color
   useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
     const bc = me?.hotel?.brand_color;
     if (bc) {
       document.documentElement.style.setProperty("--brand-hotel", bc);
-      const meta = document.querySelector('meta[name="theme-color"]');
       if (meta) meta.setAttribute("content", bc);
+    } else if (meta) {
+      meta.setAttribute("content", "#1E40E0"); // default ChatHel theme
     }
     return () => { document.documentElement.style.removeProperty("--brand-hotel"); };
   }, [me?.hotel?.brand_color]);
