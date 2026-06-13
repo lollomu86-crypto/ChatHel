@@ -24,9 +24,9 @@ from datetime import timedelta
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+mongo_url = os.environ.get('MONGO_URL', '')
+client: AsyncIOMotorClient = None  # initialised in startup event
+db = None  # initialised in startup event
 
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 
@@ -1517,6 +1517,14 @@ async def admin_redeem_coupon(coupon_id: str, hotel: Hotel = Depends(get_current
 
 @app.on_event("startup")
 async def bootstrap():
+    global client, db, mongo_url
+    mongo_url = os.environ.get('MONGO_URL', '')
+    db_name = os.environ.get('DB_NAME', 'chathel')
+    if not mongo_url:
+        raise RuntimeError("MONGO_URL environment variable is not set")
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[db_name]
+    logger.info("MongoDB client initialised (db=%s)", db_name)
     await ensure_vapid_keys()
     existing = await db.hotels.find_one({"access_code": "WELCOME2026"})
     if not existing:
@@ -1659,4 +1667,5 @@ app.add_middleware(
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    client.close()
+    if client is not None:
+        client.close()
