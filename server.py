@@ -7,12 +7,8 @@ import logging
 import asyncio
 from pathlib import Path
 import os
-print("ENV COUNT:", len(os.environ))
-print("HAS MONGO:", "MONGO_URL" in os.environ)
-mongo_url = os.environ.get('MONGO_URL')
-
-if not mongo_url:
-    raise Exception("MONGO_URL non trovata su Render")
+print(sorted(os.environ.keys()))
+raise Exception("STOP")
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal, Dict, Set
 import uuid
