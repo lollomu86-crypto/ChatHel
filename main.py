@@ -31,13 +31,10 @@ if not os.getenv("RENDER"):
     load_dotenv(ROOT_DIR / ".env")
 
 MONGO_URL = "mongodb+srv://lollomu86_db_user:Lorenzo%40@cluster0.37savpv.mongodb.net/chathel?retryWrites=true&w=majority"
-DB_NAME = os.getenv("DB_NAME")
+DB_NAME = "chathel"
 
-if not MONGO_URL:
-    raise Exception("MONGO_URL mancante su Render")
-
-if not DB_NAME:
-    raise Exception("DB_NAME mancante su Render")
+client = AsyncIOMotorClient(MONGO_URL)
+db = client[DB_NAME]
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
