@@ -26,7 +26,12 @@ load_dotenv(ROOT_DIR / '.env')
 
 mongo_url = os.environ.get("MONGO_URL")
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db_name = os.environ.get("DB_NAME")
+
+if not db_name:
+    raise Exception("DB_NAME mancante su Render")
+
+db = client[db_name]
 
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 
