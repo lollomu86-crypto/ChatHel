@@ -6,7 +6,9 @@ import os
 import logging
 import asyncio
 from pathlib import Path
-import os 
+import os
+print("ENV COUNT:", len(os.environ))
+print("HAS MONGO:", "MONGO_URL" in os.environ)
 mongo_url = os.environ.get('MONGO_URL')
 
 if not mongo_url:
