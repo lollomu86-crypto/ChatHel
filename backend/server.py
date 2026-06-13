@@ -9,6 +9,8 @@ from pathlib import Path
 import os
 
 mongo_url = os.environ.get('MONGO_URL')
+if not mongo_url:
+    print("❌ MONGO_URL NON TROVATO")
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal, Dict, Set
 import uuid
