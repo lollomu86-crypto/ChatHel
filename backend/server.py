@@ -7,7 +7,8 @@ import logging
 import asyncio
 from pathlib import Path
 import os
-print("MONGO_URL =", os.environ.get("MONGO_URL"))
+
+mongo_url = os.environ.get('MONGO_URL')
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal, Dict, Set
 import uuid
