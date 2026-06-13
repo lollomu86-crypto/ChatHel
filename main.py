@@ -30,7 +30,7 @@ ROOT_DIR = Path(__file__).parent
 if not os.getenv("RENDER"):
     load_dotenv(ROOT_DIR / ".env")
 
-MONGO_URL = os.getenv("MONGO_URL")
+MONGO_URL = "mongodb+srv://lollomu86_db_user:Lorenzo%40@cluster0.37savpv.mongodb.net/chathel?retryWrites=true&w=majority"
 DB_NAME = os.getenv("DB_NAME")
 
 if not MONGO_URL:
