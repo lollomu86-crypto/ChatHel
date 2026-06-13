@@ -20,14 +20,21 @@ import bcrypt
 import secrets
 import httpx
 from datetime import timedelta
-
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+load_dotenv(ROOT_DIR / ".env")
 
-mongo_url = os.environ.get("MONGO_URL")
-client = AsyncIOMotorClient(mongo_url)
+MONGO_URL = os.getenv("MONGO_URL")
 DB_NAME = os.getenv("DB_NAME")
-db = client[db_name]
+
+if not MONGO_URL:
+    raise Exception("MONGO_URL mancante su Render")
+
+if not DB_NAME:
+    raise Exception("DB_NAME mancante su Render")
+
+client = AsyncIOMotorClient(MONGO_URL)
+db = client[DB_NAME]
+
 
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
 
