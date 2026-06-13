@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Literal, Dict, Set
 import uuid
 from datetime import datetime, timezone
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+import httpx
 from pywebpush import webpush, WebPushException
 from py_vapid import Vapid
 import base64
