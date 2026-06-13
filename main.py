@@ -20,8 +20,15 @@ import bcrypt
 import secrets
 import httpx
 from datetime import timedelta
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / ".env")
+
+# SOLO LOCALE, MAI SU RENDER
+if not os.getenv("RENDER"):
+    load_dotenv(ROOT_DIR / ".env")
 
 MONGO_URL = os.getenv("MONGO_URL")
 DB_NAME = os.getenv("DB_NAME")
