@@ -30,7 +30,7 @@ ROOT_DIR = Path(__file__).parent
 if not os.getenv("RENDER"):
     load_dotenv(ROOT_DIR / ".env")
 
-MONGO_URL = mongodb+srv://lollomu86_db_user:Lorenzo%40@cluster0.37savpv.mongodb.net/?appName=Cluster0
+MONGO_URL = "mongodb+srv://lollomu86_db_user:Lorenzo%40@cluster0.37savpv.mongodb.net/?appName=Cluster0"
 DB_NAME = "chathel"
 
 client = AsyncIOMotorClient(MONGO_URL)
